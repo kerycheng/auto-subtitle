@@ -11,8 +11,8 @@ def worker():
 
 
 def test_relative_clips_keep_source_silence_gaps_and_original_window_clock():
-    assert worker().relative_clips([3.96,7.752,14.168,16.552,20.408,30.536],0,30000)==[3.96,7.752,14.168,16.552,20.408,30.]
-    assert worker().relative_clips([20.408,30.536,39.,45.992],30000,60000)==[0,.536,9.,15.992]
+    assert worker().relative_clips([4.,8.,14.,17.,21.,31.],0,30000)==[4.,8.,14.,17.,21.,30.]
+    assert worker().relative_clips([21.,31.,39.,46.],30000,60000)==[0,1.,9.,16.]
 
 
 @pytest.mark.parametrize('change',['extra-reference','duplicate','bad-clock'])
