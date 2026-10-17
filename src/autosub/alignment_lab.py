@@ -4,7 +4,7 @@ import math
 import unicodedata
 from pathlib import Path
 
-from .domain import Project
+from .domain import Project, word_key
 
 
 def file_hash(path):
@@ -44,6 +44,62 @@ def restore_unit_text(text, units):
     if cursor != len(text) or "".join(u["text"] for u in result) != text:
         raise ValueError("Source text changed during unit mapping")
     return result
+
+
+def propose_word_alignment(words, units, window_ms, *, timestamp_corrections=()):
+    """Map complete timed units onto original words without changing ownership.
+
+    This is an isolated proposal, never an update to a project. Callers supply
+    raw character evidence and the backend's timestamp repair records. Missing
+    times, repaired/overlapping spans and units crossing an original word
+    boundary require review instead of interpolated word timestamps.
+    """
+    def clock(value):
+        return type(value) is int and value >= 0
+
+    if (len(window_ms) != 2 or not all(clock(v) for v in window_ms)
+            or window_ms[0] >= window_ms[1] or not words or not units):
+        raise ValueError('Explicit source window, words and units are required')
+    if any(item.get('changed_indices') for item in timestamp_corrections):
+        raise ValueError('Backend-repaired timing evidence requires review')
+    text = ''.join(w.text for w in words)
+    if normalized(text) != normalized(''.join(u['text'] for u in units)):
+        raise ValueError('Alignment does not cover the original words')
+    previous, cursor, boundaries, spans = 0, 0, {0: 0}, []
+    for index, unit in enumerate(units):
+        length = len(normalized(unit['text']))
+        a, b = unit.get('start'), unit.get('end')
+        if (not length or any(isinstance(t, bool) or not isinstance(t, (int, float))
+                              or not math.isfinite(t) for t in (a, b))
+                or not 0 <= a < b <= (window_ms[1] - window_ms[0]) / 1000
+                or a < previous):
+            raise ValueError('Complete, positive, ordered unit times are required')
+        start, end = window_ms[0] + round(a * 1000), window_ms[0] + round(b * 1000)
+        if start >= end:
+            raise ValueError('Alignment unit collapses on the source clock')
+        spans.append([start, end])
+        previous = b
+        cursor += length
+        boundaries[cursor] = index + 1
+    proposals, cursor = [], 0
+    for index, word in enumerate(words):
+        length = len(normalized(word.text))
+        stop = cursor + length
+        if (not length or cursor not in boundaries or stop not in boundaries
+                or not clock(word.start_ms) or not clock(word.end_ms)
+                or not window_ms[0] <= word.start_ms <= word.end_ms <= window_ms[1]):
+            raise ValueError('Original word boundary has no complete timing evidence')
+        first, last = boundaries[cursor], boundaries[stop] - 1
+        proposals.append({'original_index': index, 'source_token': word_key(word),
+                          'text': word.text, 'probability': word.probability,
+                          'original_ms': [word.start_ms, word.end_ms],
+                          'proposed_ms': [spans[first][0], spans[last][1]]})
+        cursor = stop
+    return {'policy': 'word-alignment-lab-v1', 'words': proposals,
+            'source_tokens': [p['source_token'] for p in proposals],
+            'source_text': text,
+            'span_ms': [proposals[0]['proposed_ms'][0], proposals[-1]['proposed_ms'][1]],
+            'production_adoption': False}
 
 
 def atom_ownership(start_ms, end_ms, window_ms, owner_ms, duration_ms):
