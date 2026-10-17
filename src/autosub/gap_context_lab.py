@@ -68,3 +68,32 @@ def propose_internal_context(clips, edge_words, support, duration_ms, *,
             'candidate_clips_ms': candidate, 'decisions': decisions,
             'changed_clip_indices': [i for i in range(len(original)) if original[i] != candidate[i]],
             'production_adoption': False, 'confirmed_missing_text': False}
+
+
+def propose_short_internal_context(clips, edge_words, support, duration_ms, *,
+                                   max_clip_ms, tolerance_ms=50,
+                                   max_extension_ms=5000):
+    """Research-only exposure cap; rejected extensions keep the original clip.
+
+    The caller supplies the pinned decoder's input-window duration. This limits
+    the entire proposed clip, not just added audio, and does not guarantee one
+    decoder call or correct transcription. Never shorten a rejected proposal
+    to make it fit: that would create an unsupported new input boundary.
+    """
+    if not _clock(max_clip_ms) or max_clip_ms <= 0:
+        raise ValueError('A positive integer-clock clip limit is required')
+    result = propose_internal_context(
+        clips, edge_words, support, duration_ms,
+        tolerance_ms=tolerance_ms, max_extension_ms=max_extension_ms)
+    for index in result['changed_clip_indices']:
+        start, end = result['candidate_clips_ms'][index]
+        if end - start > max_clip_ms:
+            original = result['original_clips_ms'][index].copy()
+            result['candidate_clips_ms'][index] = original
+            result['decisions'][index].update(
+                candidate_ms=original.copy(), reason='proposed-clip-exceeds-limit')
+    result['changed_clip_indices'] = [
+        i for i, (old, new) in enumerate(zip(result['original_clips_ms'],
+                                           result['candidate_clips_ms'])) if old != new]
+    result.update(policy='short-internal-context-lab-v1', max_clip_ms=int(max_clip_ms))
+    return result

@@ -1,6 +1,7 @@
 import copy
 import pytest
 from autosub.gap_context_lab import propose_internal_context
+from autosub.gap_context_lab import propose_short_internal_context
 
 
 def test_supported_internal_head_changes_without_merging_or_moving_old_ends():
@@ -54,3 +55,33 @@ def test_minimal_synthetic_word_is_the_most_permissive_edge_probe():
                 observed = propose_internal_context(clips, {1: [4000+offset, 4000+offset+duration]}, support, 7000)
                 if not minimal['changed_clip_indices']:
                     assert not observed['changed_clip_indices']
+
+
+def test_short_cap_checks_entire_proposal_and_preserves_unrelated_groups():
+    clips = [[0, 1000], [6000, 11000], [17000, 22000]]
+    words = {1: [6000, 6100], 2: [17000, 17100]}
+    support = [[3000, 8000], [14000, 19000]]
+    before = copy.deepcopy((clips, words, support))
+    # Original clips fit, but both extensions would exceed this cap.
+    result = propose_short_internal_context(clips, words, support, 25000, max_clip_ms=7000)
+    assert result['candidate_clips_ms'] == clips
+    assert not result['changed_clip_indices']
+    assert result['decisions'][1]['reason'] == 'proposed-clip-exceeds-limit'
+    assert (clips, words, support) == before
+    assert result['production_adoption'] is False
+
+
+def test_exact_cap_is_allowed_and_long_original_is_never_shortened():
+    result = propose_short_internal_context(
+        [[0, 1000], [6000, 11000], [17000, 30000]],
+        {1: [6000, 6100], 2: [17000, 17100]},
+        [[3000, 8000], [14000, 19000]], 31000, max_clip_ms=8000)
+    assert result['candidate_clips_ms'] == [[0, 1000], [3000, 11000], [17000, 30000]]
+    assert result['changed_clip_indices'] == [1]
+    assert result['decisions'][2]['reason'] == 'proposed-clip-exceeds-limit'
+
+
+@pytest.mark.parametrize('limit', [0, -1, True, float('nan'), float('inf'), 12.5, '30'])
+def test_short_cap_rejects_invalid_limit(limit):
+    with pytest.raises(ValueError):
+        propose_short_internal_context([[0, 1000]], {}, [], 2000, max_clip_ms=limit)
