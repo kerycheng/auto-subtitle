@@ -3,6 +3,14 @@ setlocal
 set "AUTOSUB_MODEL_DIR=%~dp0models"
 set "HF_XET_CACHE=%~dp0.cache\xet"
 set "AUTOSUB_ENABLE_REPAIR_UI="
+if exist "%~dp0dist\AutoSubtitle-GPU-0.9.5\AutoSubtitle-GPU-0.9.5.exe" (
+    start "" /D "%~dp0" "%~dp0dist\AutoSubtitle-GPU-0.9.5\AutoSubtitle-GPU-0.9.5.exe"
+    exit /b 0
+)
+if exist "%~dp0dist\AutoSubtitle-0.9.5\AutoSubtitle-0.9.5.exe" (
+    start "" /D "%~dp0" "%~dp0dist\AutoSubtitle-0.9.5\AutoSubtitle-0.9.5.exe"
+    exit /b 0
+)
 if exist "%~dp0dist\AutoSubtitle-GPU-0.9.4\AutoSubtitle-GPU-0.9.4.exe" (
     start "" /D "%~dp0" "%~dp0dist\AutoSubtitle-GPU-0.9.4\AutoSubtitle-GPU-0.9.4.exe"
     exit /b 0

@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import math
-import os
 import shutil
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+from .file_io import replace_checkpoint
 
 
 @dataclass
@@ -110,7 +111,7 @@ class Project:
                     shutil.copyfile(path, backup)
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2), encoding="utf-8")
-        os.replace(temporary, path)
+        replace_checkpoint(temporary, path)
 
     @classmethod
     def load(cls, path: Path) -> Project:

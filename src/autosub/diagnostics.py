@@ -24,6 +24,41 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         from .pipeline import run_pipeline
         from .media import ffmpeg_path
         report["ffmpeg"] = ffmpeg_path()
+        # Packaged storage smoke test: synthetic Windows errors only, no real user data.
+        from unittest.mock import patch
+        from . import file_io
+        snapshot_path = target / "storage.autosub.json"
+        old_snapshot = Project(glossary="before")
+        old_snapshot.save(snapshot_path)
+        before_storage = snapshot_path.read_bytes()
+        new_snapshot = Project(glossary="after")
+        real_replace = file_io._replace
+        replace_attempts = []
+        def transient_denial(source_path, destination_path):
+            replace_attempts.append(1)
+            if len(replace_attempts) < 3:
+                failure = PermissionError("synthetic Windows denial")
+                failure.winerror = 5
+                raise failure
+            return real_replace(source_path, destination_path)
+        with patch.object(file_io, "_replace", transient_denial):
+            new_snapshot.save(snapshot_path)
+        assert len(replace_attempts) == 3 and Project.load(snapshot_path) == new_snapshot
+        assert not snapshot_path.with_suffix(snapshot_path.suffix + ".tmp").exists()
+        def persistent_denial(*_):
+            failure = PermissionError("synthetic persistent denial")
+            failure.winerror = 5
+            raise failure
+        with patch.object(file_io, "_replace", persistent_denial):
+            try:
+                old_snapshot.save(snapshot_path)
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("Persistent denial must not report success")
+        assert Project.load(snapshot_path) == new_snapshot
+        assert snapshot_path.with_suffix(snapshot_path.suffix + ".tmp").read_bytes() == before_storage
+        report["checkpoint_storage"] = "passed; synthetic bounded retry and both snapshots preserved"
         source = target / "silence.wav"
         with wave.open(str(source), "wb") as wav:
             wav.setnchannels(1)
@@ -38,10 +73,10 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
             export_subtitles(p, target / ("export" + suffix))
         report["export"] = "passed"
         from .native_segmentation import segment_native
-        first = [Word(100, 400, "おもろかったよ"), Word(400, 500, "な")]
-        second = [Word(500, 1000, "いや"), Word(1000, 2000, "仕分け工場夏")]
+        first = [Word(100, 400, "よかったよ"), Word(400, 500, "な")]
+        second = [Word(500, 1000, "いや"), Word(1000, 2000, "今日は休み")]
         guard = Project(duration_ms=3000, words=first+second, speech=[[100, 2000]])
-        assert [c.text for c in segment_native(guard, [first, second])] == ["おもろかったよな", "いや仕分け工場夏"]
+        assert [c.text for c in segment_native(guard, [first, second])] == ["よかったよな", "いや今日は休み"]
         report["native_partial_token_boundary_guard"] = "passed"
         import numpy as np
         from .speech_detection import detect_speech, external_vad_clips
