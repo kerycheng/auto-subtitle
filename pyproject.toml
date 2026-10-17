@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-subtitle"
+version = "0.9.4"
+description = "Local multilingual subtitle timing workbench"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "PySide6>=6.8,<6.11",
+  "faster-whisper>=1.1,<2",
+  "imageio-ffmpeg>=0.5,<0.7",
+  "numpy>=1.26,<3",
+  "budoux==0.9.3",
+  "sudachipy==0.7.0",
+  "sudachidict_core==20261015",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "pytest-qt>=4.4,<5", "pyinstaller>=6.11,<7"]
+segmentation = [] # retained for existing development install commands
+gpu = [
+  "nvidia-cublas-cu12==12.4.5.8; sys_platform == 'win32'",
+  "nvidia-cudnn-cu12==9.1.0.70; sys_platform == 'win32'",
+  "nvidia-cuda-nvrtc-cu12==12.4.127; sys_platform == 'win32'",
+]
+
+[project.gui-scripts]
+auto-subtitle = "autosub.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+qt_api = "pyside6"
