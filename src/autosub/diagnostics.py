@@ -16,6 +16,7 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
     target.mkdir(parents=True, exist_ok=True)
     os.environ["AUTOSUB_SETTINGS_PATH"] = str(target / "preferences.json")
     os.environ["AUTOSUB_ENABLE_REPAIR_UI"] = "1"  # archived functionality regression only
+    os.environ.pop("AUTOSUB_ENABLE_PROJECT_TOOLS", None)
     from . import __version__
     report = {"version": __version__, "platform": platform.platform(), "status": "failed"}
     try:
@@ -301,6 +302,24 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         report["user_preferences_round_trip"] = "passed; isolated self-test settings file"
         os.environ.pop("AUTOSUB_ENABLE_REPAIR_UI",None)
         public = MainWindow()
+        assert public.tools_button.isHidden()
+        assert __version__ in public.windowTitle()
+        from .vocabulary_ui import VocabularyDialog
+        from .vocabulary import load_library
+        vocabulary = VocabularyDialog(public)
+        vocabulary.name.setText("Example terms")
+        vocabulary.new_word.setText("Star Token")
+        vocabulary.add_word()
+        vocabulary.save()
+        assert load_library()["lists"][-1]["text"] == "Star Token"
+        public.refresh_vocabulary()
+        public.vocabulary_combo.setCurrentIndex(public.vocabulary_combo.findData(vocabulary.saved_id))
+        assert public.glossary.toPlainText() == "Star Token"
+        cancelled_vocabulary = VocabularyDialog(public)
+        cancelled_vocabulary.name.setText("Not saved")
+        cancelled_vocabulary.reject()
+        assert len(load_library()["lists"]) == 1
+        report["vocabulary_library"] = "passed; synthetic save/select/cancel, isolated user storage"
         public.project = audition if playback_project or (model_path and audio_path) else p
         public.project_path = None
         public.autosave.stop()

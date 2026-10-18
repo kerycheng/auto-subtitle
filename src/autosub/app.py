@@ -14,7 +14,7 @@ from PySide6.QtCore import QObject, QThread, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter, QPen, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
+    QApplication, QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow, QMessageBox,
     QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSpinBox, QSplitter,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QToolButton, QMenu, QSlider,
@@ -31,6 +31,11 @@ from .playback import AudioPreview
 from .proposal_ui import MergePreviewDialog
 from .review_proposals import proposals as sentence_proposals
 from .proposal_store import adopt_and_save, restore_and_save
+from . import __version__
+from .appearance import DESKTOP_STYLE, prepare_desktop_theme
+from .appearance import ChoiceBox as QComboBox
+from .vocabulary import load_library
+from .vocabulary_ui import VocabularyDialog
 
 
 class Waveform(QWidget):
@@ -237,7 +242,9 @@ class MainWindow(QMainWindow):
                 QFontDatabase.addApplicationFont(str(font))
         if "Microsoft JhengHei UI" in QFontDatabase.families():
             self.setFont(QFont("Microsoft JhengHei UI", 10))
-        self.setWindowTitle("自動打軸機 · Auto Subtitle 0.9.1 · Windows")
+        self.setWindowTitle(f"自動打軸機 · Auto Subtitle {__version__}")
+        prepare_desktop_theme(QApplication.instance())
+        self.setStyleSheet(DESKTOP_STYLE)
         self.repair_enabled = os.environ.get("AUTOSUB_ENABLE_REPAIR_UI") == "1"
         self.resize(1280, 850)
         self.project = Project()
@@ -254,12 +261,20 @@ class MainWindow(QMainWindow):
         self.play_start = 0
 
         root = QWidget()
+        root.setObjectName("workspace")
         self.setCentralWidget(root)
         layout = QVBoxLayout(root)
+        layout.setContentsMargins(22, 18, 22, 16)
+        layout.setSpacing(12)
+        heading = QHBoxLayout()
         title = QLabel("自動打軸機")
-        title.setStyleSheet("font-size:25px; font-weight:700; padding:8px 0")
-        layout.addWidget(title)
-        layout.addWidget(QLabel("本機辨識 · 中／英／日／韓 · ASS / SRT　｜　建議先用 1–20 分鐘直播剪輯試跑"))
+        title.setObjectName("appTitle")
+        heading.addWidget(title)
+        heading.addStretch()
+        version_label = QLabel(f"Auto Subtitle  {__version__}")
+        version_label.setObjectName("muted")
+        heading.addWidget(version_label)
+        layout.addLayout(heading)
         toolbar = QHBoxLayout()
         self.open_media_button = self.button("匯入媒體", self.open_media, toolbar)
         self.export_button = self.button("匯出字幕", self.export, toolbar)
@@ -281,11 +296,13 @@ class MainWindow(QMainWindow):
             action.setVisible(self.repair_enabled)
         self.tools_button.setMenu(menu)
         toolbar.addWidget(self.tools_button)
+        self.tools_button.setVisible(os.environ.get("AUTOSUB_ENABLE_PROJECT_TOOLS") == "1")
         self.advanced = QCheckBox("進階設定與修軸" if self.repair_enabled else "進階設定")
         toolbar.addWidget(self.advanced)
         toolbar.addStretch()
         layout.addLayout(toolbar)
         self.source_label = QLabel("尚未選擇影片或音檔")
+        self.source_label.setObjectName("sourceLabel")
         self.source_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.source_label.setWordWrap(True)
         layout.addWidget(self.source_label)
@@ -293,7 +310,11 @@ class MainWindow(QMainWindow):
         splitter = QSplitter()
         layout.addWidget(splitter, 1)
         sidebar = QWidget()
+        sidebar.setObjectName("sidebar")
+        sidebar.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         side_layout = QVBoxLayout(sidebar)
+        side_layout.setContentsMargins(0, 0, 2, 0)
+        side_layout.setSpacing(12)
         recognition = QGroupBox("辨識設定")
         form = QFormLayout(recognition)
         self.language = QComboBox()
@@ -308,6 +329,7 @@ class MainWindow(QMainWindow):
         basic_form = form
         self.recognition_details = QWidget()
         form = QFormLayout(self.recognition_details)
+        form.setContentsMargins(0, 0, 0, 0)
         self.local_model_button = QPushButton("匯入本機模型資料夾")
         self.local_model_button.clicked.connect(self.local_model)
         form.addRow(self.local_model_button)
@@ -323,20 +345,31 @@ class MainWindow(QMainWindow):
         self.threshold.setValue(0.5)
         form.addRow("VAD 門檻", self.threshold)
         self.glossary = QPlainTextEdit()
-        self.glossary.setPlaceholderText("辨識提示：角色名、遊戲術語、暱稱；不會強制替換文字")
-        self.glossary.setMaximumHeight(80)
-        form.addRow("詞彙提示", self.glossary)
-        games = QHBoxLayout()
-        for name, words in [("APEX", "Apex Legends, エーペックス, アーマー, シールド"),
-                            ("SF6", "ストリートファイター6, ドライブインパクト, パリィ"),
-                            ("其他", "ARK, GTA, RUST")]:
-            button = QPushButton(name)
-            button.clicked.connect(lambda checked=False, text=words: self.glossary.appendPlainText(text))
-            games.addWidget(button)
-        form.addRow(games)
+        # Retain the exact project/preference prompt as the backing value.
+        self.glossary.setParent(recognition)
+        self.glossary.hide()
         basic_form.addRow(self.recognition_details)
         self.recognition_group = recognition
         side_layout.addWidget(recognition)
+        vocabulary_group = QGroupBox("詞彙提示")
+        vocabulary_layout = QVBoxLayout(vocabulary_group)
+        vocabulary_layout.setSpacing(10)
+        self.vocabulary_combo = QComboBox()
+        self.vocabulary_combo.setAccessibleName("詞彙清單")
+        self.vocabulary_combo.currentIndexChanged.connect(self.select_vocabulary)
+        vocabulary_layout.addWidget(self.vocabulary_combo)
+        self.vocabulary_summary = QLabel("未使用詞彙提示")
+        self.vocabulary_summary.setTextFormat(Qt.TextFormat.PlainText)
+        self.vocabulary_summary.setWordWrap(True)
+        self.vocabulary_summary.setObjectName("muted")
+        vocabulary_layout.addWidget(self.vocabulary_summary)
+        self.vocabulary_button = QPushButton("管理詞彙")
+        self.vocabulary_button.clicked.connect(self.manage_vocabulary)
+        vocabulary_layout.addWidget(self.vocabulary_button)
+        self.vocabulary_group = vocabulary_group
+        side_layout.addWidget(vocabulary_group)
+        self.glossary.textChanged.connect(self.refresh_vocabulary)
+        self.refresh_vocabulary()
 
         timing = QGroupBox("打軸參數（毫秒）")
         timing_form = QFormLayout(timing)
@@ -344,8 +377,8 @@ class MainWindow(QMainWindow):
         labels = {"lead_ms": "句首先行", "tail_ms": "一般尾留", "max_tail_ms": "尾留上限",
                   "min_duration_ms": "最短顯示", "close_gap_ms": "補齊空隙門檻",
                   "soft_duration_ms": "開始尋找切點", "max_duration_ms": "分段時長上限",
-                  "max_chars": "每則字數上限", "silence_split_ms": "停頓參考門檻（日文保留原句界）",
-                  "boundary_search_ms": "0.2 邊界搜尋範圍", "start_search_ms": "保守策略句首搜尋",
+                  "max_chars": "每則字數上限", "silence_split_ms": "停頓參考門檻",
+                  "boundary_search_ms": "標準邊界搜尋範圍", "start_search_ms": "保守策略句首搜尋",
                   "end_search_ms": "保守策略句尾搜尋"}
         for key, value in asdict(self.project.settings).items():
             spin = QSpinBox()
@@ -354,7 +387,7 @@ class MainWindow(QMainWindow):
             self.timing_inputs[key] = spin
             timing_form.addRow(labels[key], spin)
         self.boundary_policy = QComboBox()
-        self.boundary_policy.addItem("0.2 基準（預設）", "legacy")
+        self.boundary_policy.addItem("標準（預設）", "legacy")
         self.boundary_policy.addItem("保守尾音（實驗）", "conservative")
         timing_form.addRow("邊界策略", self.boundary_policy)
         self.retime_button = QPushButton("套用參數／重新分段（保留鎖定句）")
@@ -374,22 +407,19 @@ class MainWindow(QMainWindow):
         self.wrap_export.setToolTip("預設不插入換行；開啟後 ASS 會使用 \\N 表示換行。")
         audio_form.addRow(self.wrap_export)
         side_layout.addWidget(self.audio_group)
-        note = QLabel("忠實保留口語；不翻譯。\n50ms 為目標，仍需試聽確認。\n長音須人工確認；多人發話未自動分離。\n目前專注 Windows，macOS 暫緩。")
-        note.setWordWrap(True)
-        side_layout.addWidget(note)
-        self.advanced_note = note
-        side_layout.addWidget(QLabel("1. 匯入影片或音檔\n2. 選語言及模型，開始辨識\n3. 按需試聽生成內容\n4. 匯出 ASS／SRT 到 Aegisub"))
         side_layout.addStretch()
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(sidebar)
         scroll.setMinimumWidth(270)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         splitter.addWidget(scroll)
 
         workbench = QWidget()
         work_layout = QVBoxLayout(workbench)
         actions = QHBoxLayout()
         self.start_button = self.button("開始／繼續辨識", self.start, actions)
+        self.start_button.setObjectName("primary")
         self.cancel_button = self.button("取消並保留進度", self.request_cancel, actions)
         self.cancel_button.setEnabled(False)
         self.only_flags = QCheckBox("只顯示需複核" if self.repair_enabled else "只顯示生成提示")
@@ -407,19 +437,31 @@ class MainWindow(QMainWindow):
             self.table.setColumnWidth(column, width)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setAlternatingRowColors(True)
+        self.table.setShowGrid(False)
+        self.table.verticalHeader().setVisible(False)
+        self.table.verticalHeader().setDefaultSectionSize(38)
         self.table.setStyleSheet("QTableWidget::item:selected { background:#2563eb; color:white; }"
             "QTableWidget::item:selected:!active { background:#2563eb; color:white; }")
         self.table.itemChanged.connect(self.edit_cell)
         self.table.itemSelectionChanged.connect(self.selection_changed)
+        empty_layout = QVBoxLayout(self.table.viewport())
+        empty_layout.addStretch()
+        self.empty_state = QLabel("尚未生成字幕\n\n匯入媒體，選擇語言與模型後開始辨識")
+        self.empty_state.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_state.setObjectName("muted")
+        self.empty_state.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        empty_layout.addWidget(self.empty_state)
+        empty_layout.addStretch()
         work_layout.addWidget(self.table, 1)
         self.selection_label = QLabel("尚未選取字幕")
-        self.selection_label.setStyleSheet("font-weight:600; color:#1d4ed8; padding:4px")
+        self.selection_label.setStyleSheet("font-weight:600; color:#73c7e3; padding:4px")
         work_layout.addWidget(self.selection_label)
         self.subtitle_preview = QLabel("選取字幕後可在此檢視完整文字")
         self.subtitle_preview.setWordWrap(True)
         self.subtitle_preview.setMinimumHeight(55)
         self.subtitle_preview.setTextFormat(Qt.TextFormat.PlainText)
-        self.subtitle_preview.setStyleSheet("font-size:16px; padding:6px; background:#e9edf3; color:#172536")
+        self.subtitle_preview.setStyleSheet("font-size:16px; padding:12px; background:#1d2a3d; color:#edf5ff; border-radius:6px")
         work_layout.addWidget(self.subtitle_preview)
         edit_actions = QHBoxLayout()
         self.undo_button = self.button("復原", self.undo, edit_actions)
@@ -492,6 +534,8 @@ class MainWindow(QMainWindow):
         splitter.addWidget(workbench)
         splitter.setStretchFactor(1, 1)
         self.progress = QProgressBar()
+        self.progress.setMaximumHeight(8)
+        self.progress.setTextVisible(False)
         layout.addWidget(self.progress)
         self.status = QLabel("匯入媒體後選擇設定並開始。首次使用模型會下載。")
         self.status.setWordWrap(True)
@@ -526,8 +570,53 @@ class MainWindow(QMainWindow):
             self.clock.setToolTip("F5 暫停／繼續；Ctrl+↑／↓ 上下句；F6／Shift+F6 前後生成提示")
         self.advanced.toggled.connect(self.set_advanced)
         self.set_advanced(False)
-        splitter.setSizes([280, 1000])
+        splitter.setSizes([340, 900])
         self.load_user_preferences()
+
+    def refresh_vocabulary(self):
+        text = self.glossary.toPlainText()
+        self.vocabulary_combo.blockSignals(True)
+        self.vocabulary_combo.clear()
+        self.vocabulary_combo.addItem("不使用詞彙提示", "")
+        try:
+            self.vocabulary_library = load_library()
+        except (ValueError, OSError) as exc:
+            self.vocabulary_library = {"schema_version": 1, "lists": []}
+            self.vocabulary_combo.setToolTip(f"詞彙清單無法載入，原檔保留：{exc}")
+        else:
+            self.vocabulary_combo.setToolTip("")
+        selected = 0
+        for item in self.vocabulary_library["lists"]:
+            self.vocabulary_combo.addItem(item["name"], item["id"])
+            if text and text == item["text"]:
+                selected = self.vocabulary_combo.count() - 1
+        if text and not selected:
+            self.vocabulary_combo.addItem("目前詞彙（尚未存入清單）", None)
+            selected = self.vocabulary_combo.count() - 1
+        self.vocabulary_combo.setCurrentIndex(selected)
+        self.vocabulary_combo.blockSignals(False)
+        preview = text.replace("\n", " · ")
+        self.vocabulary_summary.setText((preview[:100] + "…") if len(preview) > 100 else preview or "未使用詞彙提示")
+        self.vocabulary_summary.setToolTip(text)
+
+    def select_vocabulary(self):
+        ident = self.vocabulary_combo.currentData()
+        if ident == "":
+            self.glossary.clear()
+        elif ident is not None:
+            item = next((r for r in self.vocabulary_library["lists"] if r["id"] == ident), None)
+            if item:
+                self.glossary.setPlainText(item["text"])
+
+    def manage_vocabulary(self):
+        try:
+            dialog = VocabularyDialog(self, self.vocabulary_combo.currentData(), self.glossary.toPlainText())
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                self.refresh_vocabulary()
+                if dialog.saved_id:
+                    self.vocabulary_combo.setCurrentIndex(self.vocabulary_combo.findData(dialog.saved_id))
+        except (ValueError, OSError) as exc:
+            self.error(exc)
 
     def load_user_preferences(self):
         from .preferences import load_preferences
@@ -578,7 +667,7 @@ class MainWindow(QMainWindow):
         self.start()
 
     def set_advanced(self, enabled):
-        for widget in (self.recognition_details, self.timing_group, self.audio_group, self.advanced_note):
+        for widget in (self.recognition_details, self.timing_group, self.audio_group):
             widget.setVisible(enabled)
         for widget in (self.edit_panel,self.candidate_panel,self.candidate_label,self.zoom_panel,self.loop):
             widget.setVisible(enabled and self.repair_enabled)
@@ -669,6 +758,7 @@ class MainWindow(QMainWindow):
                 self.track.addItem(name, index)
             self.source_label.setText(filename)
             self.recognition_group.setEnabled(True)
+            self.vocabulary_group.setEnabled(True)
             self.audio.set_source(filename)
             self.wave.values = []
             self.wave.region = (0, 0)
@@ -713,6 +803,7 @@ class MainWindow(QMainWindow):
         self.boundary_policy.setCurrentIndex(max(0, self.boundary_policy.findData(p.boundary_policy)))
         self.alignment_language.setCurrentIndex(max(0, self.alignment_language.findData(p.language)))
         self.recognition_group.setEnabled(not p.source_fingerprint)
+        self.vocabulary_group.setEnabled(not p.source_fingerprint)
 
     def read_settings(self):
         result = TimingSettings(**{key: spin.value() for key, spin in self.timing_inputs.items()})
@@ -784,6 +875,7 @@ class MainWindow(QMainWindow):
                        self.compare_button, self.relink_button, self.cache_button]:
             widget.setEnabled(not busy)
         self.recognition_group.setEnabled(not busy and not self.project.source_fingerprint)
+        self.vocabulary_group.setEnabled(not busy and not self.project.source_fingerprint)
         self.cancel_button.setEnabled(busy)
         self.play_button.setEnabled(not busy and self.table.currentRow() >= 0 and self.table.selectionModel().hasSelection())
         self.confirm_action.setEnabled(self.play_button.isEnabled())
@@ -876,6 +968,9 @@ class MainWindow(QMainWindow):
     def filter_rows(self):
         for row, cue in enumerate(self.project.cues):
             self.table.setRowHidden(row, self.only_flags.isChecked() and (not cue.flags or cue.reviewed))
+        self.empty_state.setText("沒有符合篩選的字幕" if self.project.cues else
+                                 "尚未生成字幕\n\n匯入媒體，選擇語言與模型後開始辨識")
+        self.empty_state.setVisible(not any(not self.table.isRowHidden(row) for row in range(self.table.rowCount())))
         row = self.table.currentRow()
         if row < 0 or self.table.isRowHidden(row):
             indexes = list(range(max(0, row + 1), len(self.project.cues))) + list(range(0, max(0, row + 1)))
