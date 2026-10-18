@@ -17,6 +17,11 @@
 /docs/*
 !/docs/windows-quickstart.txt
 !/docs/timing-rules.md
+!/docs/images/
+/docs/images/*
+!/docs/images/main-window.svg
+!/docs/images/vocabulary-selection.svg
+!/docs/images/timing-settings.svg
 __pycache__/
 *.py[cod]
 *.egg-info/

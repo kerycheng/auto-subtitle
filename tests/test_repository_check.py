@@ -54,3 +54,19 @@ def test_rejects_token_without_printing_secret(tmp_path):
     problems = checker.audit(root)
     assert problems == [('src/demo.py', 'GitHub token')]
     assert token not in str(problems)
+
+
+def test_only_named_public_text_illustrations_are_allowed(tmp_path):
+    root = repository(tmp_path)
+    for name in ('main-window', 'vocabulary-selection', 'timing-settings'):
+        stage(root, f'docs/images/{name}.svg', '<svg xmlns="http://www.w3.org/2000/svg"><text>Example</text></svg>')
+    assert checker.audit(root) == []
+    assert not checker.allowed_path('docs/images/personal.svg')
+    assert not checker.allowed_path('docs/images/main-window.png')
+
+
+def test_public_illustration_text_is_still_checked_for_private_paths(tmp_path):
+    root = repository(tmp_path)
+    path = 'Z:' + chr(47) + 'Users' + chr(47) + 'example' + chr(47) + 'private.mov'
+    stage(root, 'docs/images/main-window.svg', '<svg><text>' + path + '</text></svg>')
+    assert checker.audit(root) == [('docs/images/main-window.svg', 'personal absolute path')]

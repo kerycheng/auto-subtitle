@@ -9,7 +9,11 @@ ROOT_FILES = {
     'Start-AutoSubtitle.cmd', 'pyproject.toml', 'requirements-windows-py312.lock',
     'requirements-alignment-windows-py312.lock',
 }
-PUBLIC_DOCS = {'docs/windows-quickstart.txt', 'docs/timing-rules.md'}
+PUBLIC_DOCS = {
+    'docs/windows-quickstart.txt', 'docs/timing-rules.md',
+    'docs/images/main-window.svg', 'docs/images/vocabulary-selection.svg',
+    'docs/images/timing-settings.svg',
+}
 SENSITIVE_PATTERNS = {
     'personal absolute path': re.compile(r"(?i)(?<![\w])(?:[a-z]:[\\/](?!Windows(?:[\\/]|[\"']))[^\s\"']+|/(?:Users|home)/[^/\s]+/)"),
     'private key': re.compile(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'),

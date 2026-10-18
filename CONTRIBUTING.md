@@ -6,6 +6,8 @@
 
 測試應自行建立臨時資料，使用合成音訊與獨立撰寫的短例句，不複製私人素材的逐字稿、時間片或真實路徑。通用研究工具須由呼叫者提供資料／計畫，不內嵌個案。
 
+公開操作圖片使用 `scripts/render_documentation.py` 產生的合成示例。僅允許 `docs/images/` 下的 `main-window.svg`、`vocabulary-selection.svg`、`timing-settings.svg`，這些文字格式圖片仍會檢查私人路徑與憑證。更新後必須逐張檢視，不可用真實字幕、個人詞彙、音訊裝置名稱或檔案路徑取代示例。
+
 提交前執行：
 
 ```powershell
