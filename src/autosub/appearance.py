@@ -1,9 +1,10 @@
 """Shared desktop colors and control hierarchy."""
 
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QColor, QPainter, QPalette, QPolygon
+from PySide6.QtCore import QPoint, QPointF, Qt
+from PySide6.QtGui import QColor, QPainter, QPalette, QPen, QPolygon
 from PySide6.QtWidgets import (
-    QAbstractSpinBox, QComboBox, QDoubleSpinBox, QSpinBox, QStyle, QStyleOptionSpinBox,
+    QAbstractSpinBox, QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox, QStyle,
+    QStyleOptionButton, QStyleOptionSpinBox,
 )
 
 
@@ -18,6 +19,29 @@ class ChoiceBox(QComboBox):
         painter.setBrush(QColor("#52657e" if self.isEnabled() else "#a6b0bd"))
         x, y = self.width() - 12, self.height() // 2
         painter.drawPolygon(QPolygon([QPoint(x - 4, y - 2), QPoint(x + 4, y - 2), QPoint(x, y + 3)]))
+
+
+class CheckBox(QCheckBox):
+    """Keep a visible check mark when the stylesheet supplies the indicator fill."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.checkState() == Qt.CheckState.Unchecked:
+            return
+        option = QStyleOptionButton()
+        self.initStyleOption(option)
+        rect = self.style().subElementRect(QStyle.SubElement.SE_CheckBoxIndicator, option, self)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor("#ffffff" if self.isEnabled() else "#f4f6fa"), 1.8,
+                            Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        def point(x, y):
+            return QPointF(rect.left() + rect.width() * x, rect.top() + rect.height() * y)
+        if self.checkState() == Qt.CheckState.PartiallyChecked:
+            painter.drawLine(point(.25, .5), point(.75, .5))
+        else:
+            painter.drawLine(point(.23, .50), point(.43, .70))
+            painter.drawLine(point(.43, .70), point(.78, .30))
 
 
 class _SpinArrows:
@@ -114,8 +138,12 @@ QComboBox { min-height: 22px; padding-right: 22px; }
 QComboBox::drop-down { border: none; width: 22px; }
 QComboBox QAbstractItemView, QMenu { background: #ffffff; color: #253247; border: 1px solid #cad4e0; selection-background-color: #2563eb; }
 QCheckBox { spacing: 7px; }
-QCheckBox::indicator { width: 15px; height: 15px; border: 1px solid #8d9db0; border-radius: 3px; background: #ffffff; }
-QCheckBox::indicator:checked { background: #2563eb; border: 2px solid #2563eb; }
+QCheckBox::indicator { width: 16px; height: 16px; border: 1px solid #9aaac0; border-radius: 4px; background: #ffffff; }
+QCheckBox::indicator:hover { border-color: #2563eb; background: #edf3ff; }
+QCheckBox::indicator:checked, QCheckBox::indicator:indeterminate { background: #2563eb; border-color: #2563eb; image: none; }
+QCheckBox::indicator:checked:hover { background: #1d4ed8; border-color: #1d4ed8; }
+QCheckBox::indicator:disabled { background: #f1f4f8; border-color: #cbd4df; }
+QCheckBox::indicator:checked:disabled, QCheckBox::indicator:indeterminate:disabled { background: #a6b5ca; border-color: #a6b5ca; }
 QTableWidget { background: #ffffff; alternate-background-color: #f8fafc; border: 1px solid #d7e0eb; border-radius: 6px; gridline-color: #e2e8f0; }
 QTableWidget::item { padding: 7px; border-bottom: 1px solid #e8edf4; }
 QHeaderView::section { background: #eef2f7; color: #52657b; border: none; border-right: 1px solid #dde4ee; padding: 9px 7px; }

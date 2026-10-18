@@ -2,7 +2,7 @@
 
 面向直播剪輯的本機字幕工具，支援日文、中文、英語與韓文。匯入影片或音檔，透過 faster-whisper 與 Silero VAD 生成字幕，匯出 ASS／SRT 後交由 Aegisub 人工修整。預設忠實保留辨識文字，不翻譯或自動潤稿。
 
-目前版本 0.9.8，開發重點為 Windows 10／11；Windows 10 實機相容性仍待確認，macOS 暫緩。模型、媒體與字幕專案保留在本機，模型首次使用時需要下載。
+目前版本 0.9.9，開發重點為 Windows 10／11；Windows 10 實機相容性仍待確認，macOS 暫緩。模型、媒體與字幕專案保留在本機，模型首次使用時需要下載。
 
 ## 安裝與執行
 
@@ -41,14 +41,14 @@ FFmpeg 預設由 imageio-ffmpeg 提供，也可用 `AUTOSUB_FFMPEG` 指定。`AU
 ## Windows 打包
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/build.py --output-name AutoSubtitle-0.9.8
+.\.venv\Scripts\python.exe scripts/build.py --output-name AutoSubtitle-0.9.9
 ```
 
 GPU 版需先安裝額外執行庫，再依序建置：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e '.[gpu]'
-.\.venv\Scripts\python.exe scripts/build.py --with-cuda --output-name AutoSubtitle-GPU-0.9.8
+.\.venv\Scripts\python.exe scripts/build.py --with-cuda --output-name AutoSubtitle-GPU-0.9.9
 ```
 
 模型不隨 exe 打包。GPU 版會收集 CUDA／cuDNN 執行庫與授權聲明，仍需相容的 NVIDIA 驅動。保留整個可攜目錄，包括 `_internal` 及 GPU 版的 `cuda`。根目錄 `Start-AutoSubtitle.cmd` 可啟動本機已建置版本。詳見 [Windows 操作說明](docs/windows-quickstart.txt)。

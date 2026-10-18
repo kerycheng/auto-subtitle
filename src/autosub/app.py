@@ -14,7 +14,7 @@ from PySide6.QtCore import QObject, QThread, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPainter, QPen, QKeySequence, QShortcut
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
+    QApplication, QDialog, QDialogButtonBox, QFileDialog, QFormLayout,
     QGroupBox, QHBoxLayout, QHeaderView, QLabel, QMainWindow, QMessageBox,
     QPlainTextEdit, QProgressBar, QPushButton, QScrollArea, QSplitter,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget, QToolButton, QMenu, QSlider,
@@ -34,6 +34,7 @@ from .proposal_store import adopt_and_save, restore_and_save
 from . import __version__
 from .appearance import DESKTOP_STYLE, prepare_desktop_theme
 from .appearance import ChoiceBox as QComboBox
+from .appearance import CheckBox as QCheckBox
 from .appearance import NumberBox as QSpinBox, DecimalBox as QDoubleSpinBox
 from .vocabulary import load_library
 from .vocabulary_ui import VocabularyDialog
