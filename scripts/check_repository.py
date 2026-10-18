@@ -5,7 +5,7 @@ import re
 import subprocess
 
 ROOT_FILES = {
-    '.editorconfig', '.gitattributes', '.gitignore', 'README.md', 'CONTRIBUTING.md', 'AGENTS.md',
+    '.editorconfig', '.gitattributes', '.gitignore', 'LICENSE', 'README.md', 'CONTRIBUTING.md', 'AGENTS.md',
     'Start-AutoSubtitle.cmd', 'pyproject.toml', 'requirements-windows-py312.lock',
     'requirements-alignment-windows-py312.lock',
 }

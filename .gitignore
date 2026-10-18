@@ -4,6 +4,7 @@
 !/.editorconfig
 !/.gitattributes
 !/.gitignore
+!/LICENSE
 !/README.md
 !/CONTRIBUTING.md
 !/Start-AutoSubtitle.cmd

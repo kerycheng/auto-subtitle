@@ -44,6 +44,7 @@ def test_accepts_public_source_and_system_font_path(tmp_path):
     root = repository(tmp_path)
     stage(root, 'src/demo.py', 'font = "' + 'C:' + '/Windows/Fonts/example.ttf"')
     stage(root, 'README.md', '# Public usage')
+    stage(root, 'LICENSE', 'MIT License')
     assert checker.audit(root) == []
 
 

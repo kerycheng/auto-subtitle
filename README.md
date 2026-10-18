@@ -207,3 +207,7 @@ FFmpeg 預設由 imageio-ffmpeg 提供。需要自訂位置時，可於啟動前
 建置產生的 `.spec` 位於 `build/specs/`，中間檔案位於 `build/pyinstaller/`。沒有建置作業時可刪除 `build/`，下次會重新產生；`dist/` 中的可攜版成品不受影響。
 
 倉庫只保存程式、通用工具、合成測試、依賴與公開操作文件。私人素材、字幕成品、個人詞彙與本機研究資料不提交；提交規則見 [貢獻與資料規則](CONTRIBUTING.md)。
+
+## 授權條款
+
+本專案原始碼採用 [MIT License](LICENSE) 授權發佈。語音辨識模型與第三方相依套件（包含 PySide6、faster-whisper、CTranslate2、Silero VAD、FFmpeg、SudachiPy、SudachiDict-core、BudouX 及 NVIDIA CUDA／cuDNN 執行庫）各自依其原始授權條款提供；分發可攜版時請保留 `LICENSE.txt` 與 `licenses/` 目錄內的第三方授權聲明。

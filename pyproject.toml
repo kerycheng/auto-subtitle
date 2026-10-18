@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "auto-subtitle"
 version = "0.10.0"
 description = "Local multilingual subtitle timing workbench"
+license = { file = "LICENSE" }
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "PySide6>=6.8,<6.11",

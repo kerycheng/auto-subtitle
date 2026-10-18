@@ -57,6 +57,9 @@ PyInstaller.__main__.run([
 quickstart = root / "docs" / "windows-quickstart.txt"
 if quickstart.is_file():
     shutil.copy2(quickstart, root / "dist" / build_name / "README-zh-TW.txt")
+license_file = root / "LICENSE"
+if license_file.is_file():
+    shutil.copy2(license_file, root / "dist" / build_name / "LICENSE.txt")
 from importlib.metadata import distribution
 import json
 notices = root / "dist" / build_name / "licenses" / "japanese-segmentation"
