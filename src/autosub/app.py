@@ -91,12 +91,12 @@ class Waveform(QWidget):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.fillRect(self.rect(), QColor("#151f30"))
+        painter.fillRect(self.rect(), QColor("#f7f9fc"))
         view_start, view_end = self.bounds()
         scale = self.width() / (view_end - view_start)
         lo, hi = self.region
-        painter.fillRect(round((lo - view_start) * scale), 0, max(0, round((hi - lo) * scale)), self.height(), QColor("#23456b"))
-        painter.setPen(QPen(QColor("#60c5bb"), 1))
+        painter.fillRect(round((lo - view_start) * scale), 0, max(0, round((hi - lo) * scale)), self.height(), QColor("#dcecff"))
+        painter.setPen(QPen(QColor("#4a89a6"), 1))
         middle = (self.height() - 18) / 2
         count = len(self.values)
         for x in range(self.width()):
@@ -105,17 +105,17 @@ class Waveform(QWidget):
             amplitude = max(self.values[first:last], default=0)
             height = min(1, amplitude) * (middle - 5)
             painter.drawLine(x, round(middle - height), x, round(middle + height))
-        for region, color, style in [(self.speech_region, "#87e892", Qt.PenStyle.SolidLine),
-                                      (self.candidate_region, "#ffa858", Qt.PenStyle.DashLine)]:
+        for region, color, style in [(self.speech_region, "#24856f", Qt.PenStyle.SolidLine),
+                                      (self.candidate_region, "#d97706", Qt.PenStyle.DashLine)]:
             if region:
                 painter.setPen(QPen(QColor(color), 2, style))
                 for edge in region:
                     x = round((edge - view_start) * scale)
                     painter.drawLine(x, 0, x, self.height() - 18)
-        painter.setPen(QPen(QColor("#f8d477"), 2))
+        painter.setPen(QPen(QColor("#c3831c"), 2))
         x = round((self.position_ms - view_start) * scale)
         painter.drawLine(x, 0, x, self.height())
-        painter.setPen(QColor("#c8d3e0"))
+        painter.setPen(QColor("#52657b"))
         for i in range(5):
             time_ms = round(view_start + (view_end - view_start) * i / 4)
             label = f"{time_ms // 60000:02}:{time_ms % 60000 / 1000:06.3f}"
@@ -425,6 +425,7 @@ class MainWindow(QMainWindow):
         self.only_flags = QCheckBox("只顯示需複核" if self.repair_enabled else "只顯示生成提示")
         self.only_flags.toggled.connect(self.filter_rows)
         actions.addWidget(self.only_flags)
+        self.only_flags.setVisible(self.repair_enabled)
         work_layout.addLayout(actions)
         self.table = QTableWidget(0, 8)
         self.table.setHorizontalHeaderLabels(["開始 ms", "結束 ms", "字幕文字", "複核提示", "鎖定", "長音", "ID", "已複核"])
@@ -432,6 +433,7 @@ class MainWindow(QMainWindow):
             self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
             self.table.horizontalHeaderItem(3).setText("生成提示")
         self.table.setColumnHidden(6, True)
+        self.table.setColumnHidden(3, not self.repair_enabled)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
         for column, width in {0: 85, 1: 85, 3: 210, 4: 48, 5: 48, 7: 64}.items():
             self.table.setColumnWidth(column, width)
@@ -455,13 +457,13 @@ class MainWindow(QMainWindow):
         empty_layout.addStretch()
         work_layout.addWidget(self.table, 1)
         self.selection_label = QLabel("尚未選取字幕")
-        self.selection_label.setStyleSheet("font-weight:600; color:#73c7e3; padding:4px")
+        self.selection_label.setStyleSheet("font-weight:600; color:#315c98; padding:4px")
         work_layout.addWidget(self.selection_label)
         self.subtitle_preview = QLabel("選取字幕後可在此檢視完整文字")
         self.subtitle_preview.setWordWrap(True)
         self.subtitle_preview.setMinimumHeight(55)
         self.subtitle_preview.setTextFormat(Qt.TextFormat.PlainText)
-        self.subtitle_preview.setStyleSheet("font-size:16px; padding:12px; background:#1d2a3d; color:#edf5ff; border-radius:6px")
+        self.subtitle_preview.setStyleSheet("font-size:16px; padding:12px; background:#eaf0f8; color:#23364c; border-radius:6px")
         work_layout.addWidget(self.subtitle_preview)
         edit_actions = QHBoxLayout()
         self.undo_button = self.button("復原", self.undo, edit_actions)
@@ -563,11 +565,11 @@ class MainWindow(QMainWindow):
                               ("F7", lambda: self.set_edge(0)), ("F8", lambda: self.set_edge(1))]:
             shortcut = QShortcut(QKeySequence(key), self)
             shortcut.activated.connect(callback)
-            if key in {"Ctrl+Return","F7","F8"}:
+            if key in {"Ctrl+Return", "F7", "F8", "F6", "Shift+F6"}:
                 shortcut.setEnabled(self.repair_enabled)
         self.clock.setToolTip("F5 暫停／繼續；Ctrl+Enter 確認下一句；Ctrl+↑／↓ 上下句；F6／Shift+F6 前後待複核；F7／F8 設頭尾")
         if not self.repair_enabled:
-            self.clock.setToolTip("F5 暫停／繼續；Ctrl+↑／↓ 上下句；F6／Shift+F6 前後生成提示")
+            self.clock.setToolTip("F5 暫停／繼續；Ctrl+↑／↓ 上下句")
         self.advanced.toggled.connect(self.set_advanced)
         self.set_advanced(False)
         splitter.setSizes([340, 900])
@@ -950,7 +952,7 @@ class MainWindow(QMainWindow):
                     item.setCheckState(Qt.CheckState.Checked if (cue.locked if column == 4 else
                                                                  cue.elongated if column == 5 else cue.reviewed)
                                        else Qt.CheckState.Unchecked)
-                if cue.flags and not cue.reviewed:
+                if self.repair_enabled and cue.flags and not cue.reviewed:
                     item.setBackground(QColor("#fff0cf"))
                     item.setForeground(QColor("#252525"))
                 self.table.setItem(row, column, item)
@@ -1277,7 +1279,7 @@ class MainWindow(QMainWindow):
             self.error("候選不存在或已過期，請重新分析")
             return
         start, end = cue.candidate["display"]
-        self.play_start, self.play_end = max(0, start - 250), min(self.project.duration_ms, end + 250)
+        self.play_start, self.play_end = max(0, start), min(self.project.duration_ms, end)
         self.audio.audition(self.play_start, self.play_end, lambda: self.loop.isChecked())
 
     def load_playback(self):
@@ -1303,8 +1305,8 @@ class MainWindow(QMainWindow):
             self.status.setText("請先點選一列字幕，再試聽")
             return
         cue = self.project.cues[row]
-        self.play_start = max(0, cue.start_ms - 250)
-        self.play_end = min(self.project.duration_ms, cue.end_ms + 250)
+        self.play_start = max(0, cue.start_ms)
+        self.play_end = min(self.project.duration_ms, cue.end_ms)
         self.audio.audition(self.play_start, self.play_end, lambda: self.loop.isChecked())
 
     def compare_finished(self):

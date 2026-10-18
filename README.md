@@ -2,7 +2,7 @@
 
 面向直播剪輯的本機字幕工具，支援日文、中文、英語與韓文。匯入影片或音檔，透過 faster-whisper 與 Silero VAD 生成字幕，匯出 ASS／SRT 後交由 Aegisub 人工修整。預設忠實保留辨識文字，不翻譯或自動潤稿。
 
-目前版本 0.9.6，開發重點為 Windows 10／11；Windows 10 實機相容性仍待確認，macOS 暫緩。模型、媒體與字幕專案保留在本機，模型首次使用時需要下載。
+目前版本 0.9.7，開發重點為 Windows 10／11；Windows 10 實機相容性仍待確認，macOS 暫緩。模型、媒體與字幕專案保留在本機，模型首次使用時需要下載。
 
 ## 安裝與執行
 
@@ -26,7 +26,7 @@ FFmpeg 預設由 imageio-ffmpeg 提供，也可用 `AUTOSUB_FFMPEG` 指定。`AU
 
 「詞彙提示」可選擇本機儲存的清單；按「管理詞彙」可建立清單、新增單詞、修改或刪除。每行一個單詞，儲存後可重複使用；取消不寫入。原專案仍保存原有提示文字，修改或刪除清單不會回寫已存專案。
 
-字幕表預設唯讀，內建修軸工具隱藏。F5 暫停／原位置續播，Ctrl+↑／↓ 切換字幕；F6／Shift+F6 導覽生成提示。提示不代表已確認錯誤。
+介面預設採用淺色配色；主畫面隱藏生成提示欄與篩選。字幕表預設唯讀，內建修軸工具隱藏。F5 暫停／原位置續播，Ctrl+↑／↓ 切換字幕。
 
 新日文專案保留 Whisper 原生句界，過長時才細分；舊專案沿用原策略。「套用參數」使用已有詞級資料重新分段，不重跑模型。句首先行、尾留、最短顯示時間及短空隙延長規則見 [打軸規格](docs/timing-rules.md)。ASS／SRT 預設不自動插入兩行換行，可在進階設定啟用。
 
@@ -41,14 +41,14 @@ FFmpeg 預設由 imageio-ffmpeg 提供，也可用 `AUTOSUB_FFMPEG` 指定。`AU
 ## Windows 打包
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/build.py --output-name AutoSubtitle-0.9.6
+.\.venv\Scripts\python.exe scripts/build.py --output-name AutoSubtitle-0.9.7
 ```
 
 GPU 版需先安裝額外執行庫，再依序建置：
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e '.[gpu]'
-.\.venv\Scripts\python.exe scripts/build.py --with-cuda --output-name AutoSubtitle-GPU-0.9.6
+.\.venv\Scripts\python.exe scripts/build.py --with-cuda --output-name AutoSubtitle-GPU-0.9.7
 ```
 
 模型不隨 exe 打包。GPU 版會收集 CUDA／cuDNN 執行庫與授權聲明，仍需相容的 NVIDIA 驅動。保留整個可攜目錄，包括 `_internal` 及 GPU 版的 `cuda`。根目錄 `Start-AutoSubtitle.cmd` 可啟動本機已建置版本。詳見 [Windows 操作說明](docs/windows-quickstart.txt)。
@@ -63,3 +63,5 @@ GPU 版需先安裝額外執行庫，再依序建置：
 測試以合成音訊、臨時檔案及模擬模型檢查程式行為，不代表真實直播辨識率。通用離線診斷工具位於 `scripts/`；需要的研究計畫與輸入資料須由呼叫者另行提供。
 
 倉庫只保存程式、一般化測試、依賴與公開使用文件。私人素材、字幕成品、辨識輸出、研究計畫及階段報告不提交，詳見 [貢獻與資料規則](CONTRIBUTING.md)。
+
+「試聽選取句」只播放選句的開始至結束時間，不額外延伸前後範圍；循環與暫停續播沿用同一範圍。

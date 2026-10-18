@@ -248,6 +248,9 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
             window.volume.setValue(25)
             window.table.selectRow(0)
             window.play_cue()
+            assert (window.audio.start_ms, window.audio.end_ms) == (
+                max(0, audition.cues[0].start_ms), min(audition.duration_ms, audition.cues[0].end_ms))
+            report["selected_cue_bounds"] = "passed; exact display range without surrounding padding"
             start = window.audio.start_ms
             deadline = time.monotonic() + 8
             while window.audio.position() < start + 250 and time.monotonic() < deadline:
@@ -284,6 +287,8 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
             for row in range(min(5, len(audition.cues))):
                 window.table.selectRow(row)
                 window.play_cue()
+                assert (window.audio.start_ms, window.audio.end_ms) == (
+                    max(0, audition.cues[row].start_ms), min(audition.duration_ms, audition.cues[row].end_ms))
                 app.processEvents()
                 assert window.audio.sink is not None and window.audio.sink.error().value == 0
                 window.audio.pause()
@@ -327,6 +332,7 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         public.refresh()
         public.advanced.setChecked(True)
         assert not public.repair_enabled and public.edit_panel.isHidden() and public.candidate_panel.isHidden()
+        assert public.only_flags.isHidden() and public.table.isColumnHidden(3)
         assert public.table.editTriggers() == public.table.EditTrigger.NoEditTriggers
         public.advanced.setChecked(False)
         public.show()
