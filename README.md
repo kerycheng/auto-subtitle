@@ -53,6 +53,8 @@ GPU 版需先安裝額外執行庫，再依序建置：
 
 模型不隨 exe 打包。GPU 版會收集 CUDA／cuDNN 執行庫與授權聲明，仍需相容的 NVIDIA 驅動。保留整個可攜目錄，包括 `_internal` 及 GPU 版的 `cuda`。根目錄 `Start-AutoSubtitle.cmd` 可啟動本機已建置版本。詳見 [Windows 操作說明](docs/windows-quickstart.txt)。
 
+建置產生的 `.spec` 位於 `build/specs/`，中間檔案位於 `build/pyinstaller/`。`build/` 可在沒有建置作業時刪除，下次建置會重新產生；可攜版成品位於 `dist/`，不受清理 `build/` 影響。
+
 ## 開發與驗證
 
 ```powershell

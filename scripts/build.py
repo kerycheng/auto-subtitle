@@ -42,6 +42,8 @@ shutil.copy2(ffmpeg, target)
 
 PyInstaller.__main__.run([
     str(root / "scripts" / "launch.py"), "--name", build_name, "--windowed", "--onedir", "--noconfirm", "--clean",
+    "--specpath", str(root / "build" / "specs"),
+    "--workpath", str(root / "build" / "pyinstaller"),
     "--paths", str(root / "src"),
     "--collect-all", "faster_whisper", "--collect-all", "ctranslate2", "--collect-all", "tokenizers",
     "--collect-all", "onnxruntime", "--collect-all", "av",
