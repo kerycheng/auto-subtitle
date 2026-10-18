@@ -10,7 +10,7 @@ ROOT_FILES = {
     'requirements-alignment-windows-py312.lock',
 }
 PUBLIC_DOCS = {
-    'docs/windows-quickstart.txt', 'docs/timing-rules.md',
+    'docs/windows-quickstart.txt', 'docs/timing-rules.md', 'docs/release-notes-v0.10.0.md',
     'docs/images/main-window.svg', 'docs/images/vocabulary-selection.svg',
     'docs/images/timing-settings.svg',
 }
