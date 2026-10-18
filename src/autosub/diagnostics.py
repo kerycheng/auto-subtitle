@@ -318,13 +318,35 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         vocabulary.save()
         assert load_library()["lists"][-1]["text"] == "Star Token"
         public.refresh_vocabulary()
-        public.vocabulary_combo.setCurrentIndex(public.vocabulary_combo.findData(vocabulary.saved_id))
+        public.apply_vocabulary_choice({"ids": [vocabulary.saved_id], "base_text": ""})
         assert public.glossary.toPlainText() == "Star Token"
         cancelled_vocabulary = VocabularyDialog(public)
         cancelled_vocabulary.name.setText("Not saved")
         cancelled_vocabulary.reject()
         assert len(load_library()["lists"]) == 1
         report["vocabulary_library"] = "passed; synthetic save/select/cancel, isolated user storage"
+        from .vocabulary import save_library
+        from .vocabulary_ui import VocabularySelectionDialog
+        raw = load_library()
+        raw["lists"].append({"id": "second", "name": "Example game terms", "text": "Star Token\nMoon Harbor"})
+        save_library(raw)
+        public.refresh_vocabulary()
+        def accept_vocabulary():
+            dialog = app.activeModalWidget()
+            assert isinstance(dialog, VocabularySelectionDialog)
+            dialog.checks["second"].setChecked(True)
+            assert dialog.prompt == "Star Token\nMoon Harbor"
+            assert dialog.grab().save(str(target / "vocabulary-selection.png"))
+            dialog.accept()
+        QTimer.singleShot(0, accept_vocabulary)
+        public.choose_vocabulary()
+        assert public.glossary.toPlainText() == "Star Token\nMoon Harbor"
+        assert len(public.vocabulary_choice["ids"]) == 2
+        public.save_user_preferences()
+        reopened_vocabulary = MainWindow()
+        assert reopened_vocabulary.vocabulary_choice == public.vocabulary_choice
+        reopened_vocabulary.close()
+        report["vocabulary_multiselect"] = "passed; actual modal checklist, deduplication and restart"
         public.project = audition if playback_project or (model_path and audio_path) else p
         public.project_path = None
         public.autosave.stop()

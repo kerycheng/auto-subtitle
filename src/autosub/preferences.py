@@ -37,6 +37,15 @@ def validate(raw):
         if not isinstance(raw[key], str) or len(raw[key]) > 100000:
             raise ValueError("使用者文字設定無效：" + key)
         result[key] = raw[key]
+    # Optional UI metadata must never invalidate an otherwise usable legacy prompt.
+    choice = raw.get("vocabulary_choice")
+    result["vocabulary_choice"] = None
+    if isinstance(choice, dict):
+        ids, base = choice.get("ids"), choice.get("base_text")
+        if (isinstance(ids, list) and len(ids) <= 500
+                and all(isinstance(i, str) and 0 < len(i) <= 80 for i in ids)
+                and len(set(ids)) == len(ids) and isinstance(base, str) and len(base) <= 100000):
+            result["vocabulary_choice"] = {"ids": ids, "base_text": base}
     if not result["model"].strip():
         raise ValueError("模型不得為空白")
     output = raw.get("output_device")

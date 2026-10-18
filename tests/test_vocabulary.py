@@ -118,18 +118,18 @@ def test_project_prompt_survives_library_change_and_removal(qtbot):
     save_library(collection())
     window = MainWindow()
     qtbot.addWidget(window)
-    window.vocabulary_combo.setCurrentIndex(window.vocabulary_combo.findData("sample"))
+    window.apply_vocabulary_choice({"ids": ["sample"], "base_text": ""})
     original = window.glossary.toPlainText()
     window.project.glossary = original
     save_library(collection("New terms"))
     window.load_controls()
     assert window.glossary.toPlainText() == original
-    assert window.vocabulary_combo.currentData() is None
+    assert window.vocabulary_choice == {"ids": [], "base_text": original}
     save_library({"schema_version": 1, "lists": []})
     window.refresh_vocabulary()
     assert window.glossary.toPlainText() == original
     assert window.project.glossary == original
-    window.vocabulary_combo.setCurrentIndex(0)
+    window.apply_vocabulary_choice({"ids": [], "base_text": ""})
     assert not window.glossary.toPlainText()
 
 
@@ -170,9 +170,9 @@ def test_selected_vocabulary_restores_after_app_restart(qtbot):
     save_library(collection())
     window = MainWindow()
     qtbot.addWidget(window)
-    window.vocabulary_combo.setCurrentIndex(window.vocabulary_combo.findData("sample"))
+    window.apply_vocabulary_choice({"ids": ["sample"], "base_text": ""})
     window.save_user_preferences()
     reopened = MainWindow()
     qtbot.addWidget(reopened)
     assert reopened.glossary.toPlainText() == collection()["lists"][0]["text"]
-    assert reopened.vocabulary_combo.currentData() == "sample"
+    assert reopened.vocabulary_choice == {"ids": ["sample"], "base_text": ""}

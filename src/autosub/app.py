@@ -36,8 +36,8 @@ from .appearance import DESKTOP_STYLE, prepare_desktop_theme
 from .appearance import ChoiceBox as QComboBox
 from .appearance import CheckBox as QCheckBox
 from .appearance import NumberBox as QSpinBox, DecimalBox as QDoubleSpinBox
-from .vocabulary import load_library
-from .vocabulary_ui import VocabularyDialog
+from .vocabulary import clean_words, compose_vocabulary, load_library, resolve_vocabulary_choice
+from .vocabulary_ui import VocabularyDialog, VocabularySelectionDialog
 
 
 class Waveform(QWidget):
@@ -356,10 +356,11 @@ class MainWindow(QMainWindow):
         vocabulary_group = QGroupBox("詞彙提示")
         vocabulary_layout = QVBoxLayout(vocabulary_group)
         vocabulary_layout.setSpacing(10)
-        self.vocabulary_combo = QComboBox()
-        self.vocabulary_combo.setAccessibleName("詞彙清單")
-        self.vocabulary_combo.currentIndexChanged.connect(self.select_vocabulary)
-        vocabulary_layout.addWidget(self.vocabulary_combo)
+        self.vocabulary_choice = {"ids": [], "base_text": ""}
+        self.vocabulary_button_select = QPushButton("選擇提示清單…")
+        self.vocabulary_button_select.setAccessibleName("勾選詞彙提示清單")
+        self.vocabulary_button_select.clicked.connect(self.choose_vocabulary)
+        vocabulary_layout.addWidget(self.vocabulary_button_select)
         self.vocabulary_summary = QLabel("未使用詞彙提示")
         self.vocabulary_summary.setTextFormat(Qt.TextFormat.PlainText)
         self.vocabulary_summary.setWordWrap(True)
@@ -579,46 +580,47 @@ class MainWindow(QMainWindow):
 
     def refresh_vocabulary(self):
         text = self.glossary.toPlainText()
-        self.vocabulary_combo.blockSignals(True)
-        self.vocabulary_combo.clear()
-        self.vocabulary_combo.addItem("不使用詞彙提示", "")
         try:
             self.vocabulary_library = load_library()
         except (ValueError, OSError) as exc:
             self.vocabulary_library = {"schema_version": 1, "lists": []}
-            self.vocabulary_combo.setToolTip(f"詞彙清單無法載入，原檔保留：{exc}")
+            self.vocabulary_button_select.setToolTip(f"詞彙清單無法載入，原檔保留：{exc}")
         else:
-            self.vocabulary_combo.setToolTip("")
-        selected = 0
-        for item in self.vocabulary_library["lists"]:
-            self.vocabulary_combo.addItem(item["name"], item["id"])
-            if text and text == item["text"]:
-                selected = self.vocabulary_combo.count() - 1
-        if text and not selected:
-            self.vocabulary_combo.addItem("目前詞彙（尚未存入清單）", None)
-            selected = self.vocabulary_combo.count() - 1
-        self.vocabulary_combo.setCurrentIndex(selected)
-        self.vocabulary_combo.blockSignals(False)
-        preview = text.replace("\n", " · ")
-        self.vocabulary_summary.setText((preview[:100] + "…") if len(preview) > 100 else preview or "未使用詞彙提示")
+            self.vocabulary_button_select.setToolTip("")
+        self.vocabulary_choice = resolve_vocabulary_choice(self.vocabulary_library, text, self.vocabulary_choice)
+        names = [r["name"] for r in self.vocabulary_library["lists"] if r["id"] in self.vocabulary_choice["ids"]]
+        if self.vocabulary_choice["base_text"]:
+            names.insert(0, "目前提示原文")
+        summary = "、".join(names)
+        if text:
+            summary = f"{len(clean_words(text))} 詞 · " + summary
+        self.vocabulary_summary.setText((summary[:100] + "…") if len(summary) > 100 else summary or "未使用詞彙提示")
         self.vocabulary_summary.setToolTip(text)
 
-    def select_vocabulary(self):
-        ident = self.vocabulary_combo.currentData()
-        if ident == "":
-            self.glossary.clear()
-        elif ident is not None:
-            item = next((r for r in self.vocabulary_library["lists"] if r["id"] == ident), None)
-            if item:
-                self.glossary.setPlainText(item["text"])
+    def apply_vocabulary_choice(self, choice):
+        text = compose_vocabulary(self.vocabulary_library, choice)
+        self.vocabulary_choice = choice
+        self.glossary.setPlainText(text)
+        self.refresh_vocabulary()
+
+    def choose_vocabulary(self):
+        if not self.vocabulary_group.isEnabled():
+            return
+        self.refresh_vocabulary()
+        dialog = VocabularySelectionDialog(self, self.vocabulary_library, self.vocabulary_choice)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Use the exact preview even if another process changes the library.
+            self.vocabulary_choice = dialog.choice
+            self.glossary.setPlainText(dialog.prompt)
+            self.refresh_vocabulary()
 
     def manage_vocabulary(self):
         try:
-            dialog = VocabularyDialog(self, self.vocabulary_combo.currentData(), self.glossary.toPlainText())
+            ids = self.vocabulary_choice["ids"]
+            dialog = VocabularyDialog(self, ids[0] if len(ids) == 1 else None, self.glossary.toPlainText())
             if dialog.exec() == QDialog.DialogCode.Accepted:
+                # Editing a library never silently changes the active prompt.
                 self.refresh_vocabulary()
-                if dialog.saved_id:
-                    self.vocabulary_combo.setCurrentIndex(self.vocabulary_combo.findData(dialog.saved_id))
         except (ValueError, OSError) as exc:
             self.error(exc)
 
@@ -634,7 +636,9 @@ class MainWindow(QMainWindow):
         self.model.setCurrentText(preferences["model"])
         self.device.setCurrentText(preferences["device"])
         self.threshold.setValue(preferences["vad_threshold"])
+        self.vocabulary_choice = preferences.get("vocabulary_choice")
         self.glossary.setPlainText(preferences["glossary"])
+        self.refresh_vocabulary()
         self.boundary_policy.setCurrentIndex(self.boundary_policy.findData(preferences["boundary_policy"]))
         for key, value in preferences["timing"].items():
             self.timing_inputs[key].setValue(value)
@@ -653,7 +657,8 @@ class MainWindow(QMainWindow):
                 "output_device": device_id.hex() if device_id is not None else None,
                 "language": self.language.currentData(), "model": self.model.currentText().strip(),
                 "device": self.device.currentText(), "vad_threshold": self.threshold.value(),
-                "glossary": self.glossary.toPlainText(), "timing": asdict(self.read_settings()),
+                "glossary": self.glossary.toPlainText(), "vocabulary_choice": self.vocabulary_choice,
+                "timing": asdict(self.read_settings()),
                 "boundary_policy": self.boundary_policy.currentData(), "wrap_export": self.wrap_export.isChecked()})
         except Exception as exc:
             logging.warning("使用者設定未保存：%s", exc)

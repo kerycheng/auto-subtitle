@@ -6,11 +6,98 @@ from PySide6.QtCore import QEvent, Qt
 
 from PySide6.QtWidgets import (
     QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel,
-    QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QVBoxLayout,
+    QLineEdit, QMessageBox, QPlainTextEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
-from .vocabulary import clean_words, load_library, save_library
-from .appearance import ChoiceBox as QComboBox
+from .vocabulary import clean_words, compose_vocabulary, load_library, save_library
+from .appearance import CheckBox, ChoiceBox as QComboBox
+
+
+class VocabularySelectionDialog(QDialog):
+    def __init__(self, parent, library, choice):
+        super().__init__(parent)
+        self.setWindowTitle("選擇詞彙提示")
+        self.resize(520, 610)
+        self.library = copy.deepcopy(library)
+        self.base_text = choice["base_text"]
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel("勾選本段會出現的人名與用語，可同時選擇多組。"))
+        search = QLineEdit()
+        search.setPlaceholderText("搜尋清單名稱")
+        layout.addWidget(search)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        container = QWidget()
+        rows = QVBoxLayout(container)
+        self.base_check = None
+        if self.base_text:
+            self.base_check = CheckBox("保留目前提示（原文快照）")
+            self.base_check.setToolTip(self.base_text)
+            self.base_check.setChecked(True)
+            rows.addWidget(self.base_check)
+            self.base_check.toggled.connect(self.update_preview)
+        self.checks = {}
+        for item in self.library["lists"]:
+            check = CheckBox(item["name"])
+            check.setToolTip(item["text"])
+            check.setChecked(item["id"] in choice["ids"])
+            self.checks[item["id"]] = check
+            rows.addWidget(check)
+            check.toggled.connect(self.update_preview)
+        if not self.checks:
+            rows.addWidget(QLabel("尚未建立清單，請回主畫面使用「管理詞彙」新增。"))
+        rows.addStretch()
+        scroll.setWidget(container)
+        layout.addWidget(scroll, 1)
+        search.textChanged.connect(lambda text: [check.setVisible(text.casefold() in check.text().casefold())
+                                                for check in self.checks.values()])
+        self.summary = QLabel()
+        self.summary.setWordWrap(True)
+        layout.addWidget(self.summary)
+        self.preview = QPlainTextEdit()
+        self.preview.setReadOnly(True)
+        self.preview.setMaximumHeight(110)
+        self.preview.setPlaceholderText("尚未勾選，將不使用詞彙提示")
+        layout.addWidget(self.preview)
+        note = QLabel("相同詞彙會自動去重。詞彙越多不一定越準，建議只選相關清單。")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        bottom = QHBoxLayout()
+        clear = QPushButton("全部取消勾選")
+        clear.clicked.connect(self.clear_selection)
+        bottom.addWidget(clear)
+        bottom.addStretch()
+        self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.button(QDialogButtonBox.StandardButton.Ok).setText("套用")
+        self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        bottom.addWidget(self.buttons)
+        layout.addLayout(bottom)
+        self.update_preview()
+
+    def update_preview(self):
+        self.choice = {"ids": [ident for ident, check in self.checks.items() if check.isChecked()],
+                       "base_text": self.base_text if self.base_check and self.base_check.isChecked() else ""}
+        try:
+            self.prompt = compose_vocabulary(self.library, self.choice)
+        except ValueError as exc:
+            self.prompt = ""
+            self.summary.setText(str(exc))
+            self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(False)
+        else:
+            self.buttons.button(QDialogButtonBox.StandardButton.Ok).setEnabled(True)
+            text = f"已選 {len(self.choice['ids'])} 組 · {len(clean_words(self.prompt))} 詞 · {len(self.prompt)} 字"
+            if len(self.prompt.encode("utf-8")) > 600:
+                text += "\n提示較長，模型可能只讀取部分內容；建議減少不相關清單。"
+            self.summary.setText(text)
+        self.preview.setPlainText(self.prompt)
+
+    def clear_selection(self):
+        for check in self.checks.values():
+            check.setChecked(False)
+        if self.base_check:
+            self.base_check.setChecked(False)
 
 
 class VocabularyDialog(QDialog):
@@ -57,7 +144,7 @@ class VocabularyDialog(QDialog):
         bottom.addWidget(self.delete_button)
         bottom.addStretch()
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        self.buttons.button(QDialogButtonBox.StandardButton.Save).setText("儲存並使用")
+        self.buttons.button(QDialogButtonBox.StandardButton.Save).setText("儲存清單")
         self.buttons.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
         self.buttons.accepted.connect(self.save)
         self.buttons.rejected.connect(self.reject)
