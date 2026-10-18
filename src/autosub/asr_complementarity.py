@@ -128,7 +128,7 @@ def complementarity_report(manifest):
             "Oracle reads references and selects whole windows; it is not an automatic selector or per-character fusion.",
             "Partial, uncertain, unreviewed or unpaired references are not scored.",
             "Dataset references are not independently audited acoustic gold; edits are not semantic error diagnoses.",
-            "No subtitle changes, new inference, word timings, natural-stream accuracy or deployment approval.",
+            "This analyzer invokes no inference and edits no subtitles; its metrics do not validate timing, natural-stream quality or deployment.",
         ],
         "by_language": summaries, "cases": cases,
     }
