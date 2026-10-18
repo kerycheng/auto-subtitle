@@ -97,3 +97,52 @@ def propose_short_internal_context(clips, edge_words, support, duration_ms, *,
                                            result['candidate_clips_ms'])) if old != new]
     result.update(policy='short-internal-context-lab-v1', max_clip_ms=int(max_clip_ms))
     return result
+
+
+def observed_clip_edges(clips, segments, duration_ms, *, frames_per_second):
+    """Associate emitted segments by SDK seek frame before validating words.
+
+    An invalid first positive-duration word excludes the edge. Never filter
+    words into a requested time range and then choose a later word. Requested
+    source clocks remain separate from the SDK's rounded decoder frame grid.
+    """
+    if (not _clock(duration_ms) or duration_ms <= 0
+            or isinstance(frames_per_second, bool)
+            or not isinstance(frames_per_second, (int, float))
+            or not math.isfinite(frames_per_second) or frames_per_second <= 0):
+        raise ValueError('Valid duration and decoder frame rate are required')
+    original = _ranges(clips, duration_ms)
+    frames = [[round(v / 1000 * frames_per_second) for v in span] for span in original]
+    if not frames or any(a >= b or i and a < frames[i-1][1]
+                         for i, (a, b) in enumerate(frames)):
+        raise ValueError('Requested clips collapse or overlap on the decoder grid')
+    edges, excluded, seen, previous = {}, [], set(), -1
+    for segment in segments:
+        seek = segment['seek']
+        if not _clock(seek) or seek < previous:
+            raise ValueError('Invalid or decreasing decoder seek')
+        previous = seek
+        owners = [i for i, (a, b) in enumerate(frames) if a <= seek < b]
+        if len(owners) != 1:
+            raise ValueError('Segment seek has no unique requested clip')
+        index = owners[0]
+        if index in seen:
+            continue
+        for word in segment.get('words') or []:
+            a, b = word['start'], word['end']
+            if (any(isinstance(v, bool) or not isinstance(v, (int, float))
+                    or not math.isfinite(v) for v in (a, b)) or a > b):
+                raise ValueError('Invalid observed word time')
+            if a == b:
+                continue
+            seen.add(index)
+            interval = [round(a * 1000), round(b * 1000)]
+            start, end = original[index]
+            if not start <= interval[0] < interval[1] <= end:
+                excluded.append({'clip_index': index, 'first_word_ms': interval,
+                                 'reason': 'first-positive-word-outside-raw-clip'})
+            else:
+                edges[index] = interval
+            break
+    return {'edge_words': edges, 'excluded': excluded, 'effective_clip_frames': frames,
+            'frames_per_second': frames_per_second}
