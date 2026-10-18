@@ -334,6 +334,26 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         assert not public.repair_enabled and public.edit_panel.isHidden() and public.candidate_panel.isHidden()
         assert public.only_flags.isHidden() and public.table.isColumnHidden(3)
         assert public.table.editTriggers() == public.table.EditTrigger.NoEditTriggers
+        from .appearance import NumberBox, DecimalBox
+        from PySide6.QtWidgets import QStyle, QStyleOptionSpinBox
+        public.show()
+        app.processEvents()
+        boxes = public.findChildren(NumberBox) + public.findChildren(DecimalBox)
+        assert boxes
+        for box in boxes:
+            # Grabbing a hidden widget can finish layout and change its geometry.
+            rendered = box.grab().toImage()
+            option = QStyleOptionSpinBox()
+            box.initStyleOption(option)
+            for control in (QStyle.SubControl.SC_SpinBoxUp, QStyle.SubControl.SC_SpinBoxDown):
+                rect = box.style().subControlRect(QStyle.ComplexControl.CC_SpinBox, option, control, box)
+                assert rect.width() >= 20
+                center = rect.center()
+                ratio = rendered.devicePixelRatio()
+                assert rendered.pixelColor(round(center.x() * ratio), round(center.y() * ratio)).name() in (
+                    "#52657e", "#a6b0bd")
+        assert public.timing_group.grab().save(str(target / "numeric-controls.png"))
+        report["numeric_controls"] = "passed; visible step arrows in actual integer and decimal fields"
         public.advanced.setChecked(False)
         public.show()
         app.processEvents()

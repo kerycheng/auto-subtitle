@@ -2,7 +2,9 @@
 
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QColor, QPainter, QPalette, QPolygon
-from PySide6.QtWidgets import QComboBox
+from PySide6.QtWidgets import (
+    QAbstractSpinBox, QComboBox, QDoubleSpinBox, QSpinBox, QStyle, QStyleOptionSpinBox,
+)
 
 
 class ChoiceBox(QComboBox):
@@ -16,6 +18,43 @@ class ChoiceBox(QComboBox):
         painter.setBrush(QColor("#52657e" if self.isEnabled() else "#a6b0bd"))
         x, y = self.width() - 12, self.height() // 2
         painter.drawPolygon(QPolygon([QPoint(x - 4, y - 2), QPoint(x + 4, y - 2), QPoint(x, y + 3)]))
+
+
+class _SpinArrows:
+    """Paint arrows inside Qt's actual hit rectangles, including high-DPI layouts."""
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        option = QStyleOptionSpinBox()
+        self.initStyleOption(option)
+        if option.buttonSymbols != QAbstractSpinBox.ButtonSymbols.UpDownArrows:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        for control, flag, direction in (
+            (QStyle.SubControl.SC_SpinBoxUp, QAbstractSpinBox.StepEnabledFlag.StepUpEnabled, -1),
+            (QStyle.SubControl.SC_SpinBoxDown, QAbstractSpinBox.StepEnabledFlag.StepDownEnabled, 1),
+        ):
+            rect = self.style().subControlRect(QStyle.ComplexControl.CC_SpinBox, option, control, self)
+            if rect.isEmpty():
+                continue
+            enabled = self.isEnabled() and bool(option.stepEnabled & flag)
+            painter.setBrush(QColor("#52657e" if enabled else "#a6b0bd"))
+            center = rect.center()
+            x, y = center.x(), center.y()
+            painter.drawPolygon(QPolygon([
+                QPoint(x - 4, y - 2 * direction), QPoint(x + 4, y - 2 * direction),
+                QPoint(x, y + 3 * direction),
+            ]))
+
+
+class NumberBox(_SpinArrows, QSpinBox):
+    pass
+
+
+class DecimalBox(_SpinArrows, QDoubleSpinBox):
+    pass
 
 
 def prepare_desktop_theme(app):
@@ -57,6 +96,20 @@ QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox, QPlainTextEdit {
     background: #ffffff; border: 1px solid #cad4e0; border-radius: 5px; padding: 5px 7px;
     selection-background-color: #2563eb; selection-color: white; }
 QLineEdit:focus, QComboBox:focus, QPlainTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus { border-color: #3b82f6; }
+QSpinBox, QDoubleSpinBox { padding-right: 30px; min-height: 22px; }
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border; subcontrol-position: top right; width: 24px;
+    background: #edf2f8; border-left: 1px solid #cad4e0; border-top-right-radius: 5px; }
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border; subcontrol-position: bottom right; width: 24px;
+    background: #edf2f8; border-left: 1px solid #cad4e0; border-top: 1px solid #d7e0eb;
+    border-bottom-right-radius: 5px; }
+QSpinBox::up-button:hover, QSpinBox::down-button:hover,
+QDoubleSpinBox::up-button:hover, QDoubleSpinBox::down-button:hover { background: #dfeaff; }
+QSpinBox::up-button:pressed, QSpinBox::down-button:pressed,
+QDoubleSpinBox::up-button:pressed, QDoubleSpinBox::down-button:pressed { background: #cbdcf7; }
+QSpinBox::up-arrow, QSpinBox::down-arrow,
+QDoubleSpinBox::up-arrow, QDoubleSpinBox::down-arrow { image: none; }
 QComboBox { min-height: 22px; padding-right: 22px; }
 QComboBox::drop-down { border: none; width: 22px; }
 QComboBox QAbstractItemView, QMenu { background: #ffffff; color: #253247; border: 1px solid #cad4e0; selection-background-color: #2563eb; }
