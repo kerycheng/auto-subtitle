@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 
 from .domain import Project, TimingSettings
 from .editing import merge_cues, review_cues, set_lock_state, split_cue
-from .export import export_subtitles
+from .export_review import export_with_review
 from .media import Cancelled, audio_tracks, waveform
 from .pipeline import run_pipeline
 from .timing import apply_timing
@@ -736,6 +736,8 @@ class MainWindow(QMainWindow):
                 self.dirty = False
             except Exception as exc:
                 self.error(exc)
+                return False
+        return True
 
     def prepare_replace(self) -> bool:
         if self.dirty and self.project_path is None:
@@ -1492,10 +1494,21 @@ class MainWindow(QMainWindow):
             if filename:
                 path = Path(filename)
                 path = path.with_suffix(".srt" if selected.startswith("SRT") else ".ass")
-                export_subtitles(self.project, path, wrap_lines=self.wrap_export.isChecked())
-                self.persist()
+                report, companion, report_error = export_with_review(self.project, path, wrap_lines=self.wrap_export.isChecked())
                 suffix = "（辨識尚未完成，目前僅匯出已完成部分）" if self.project.status != "complete" else ""
+                if report_error:
+                    suffix += "；檢查報告未更新，舊報告可能已過期"
+                else:
+                    suffix += f"；{len(report['findings'])} 項檢查提醒，報告：{companion.name}"
+                try:
+                    if self.persist() is False:
+                        suffix += "；專案未能儲存，請另存專案"
+                except Exception:
+                    logging.exception("Subtitle exported, but project persistence failed")
+                    suffix += "；專案未能儲存，請另存專案"
                 self.status.setText(f"已匯出 {path}{suffix}")
+                if report_error:
+                    QMessageBox.warning(self, "字幕已匯出，檢查報告未更新", report_error)
         except Exception as exc:
             self.error(exc)
 

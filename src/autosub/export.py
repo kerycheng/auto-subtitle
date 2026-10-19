@@ -21,6 +21,13 @@ def ass_text(text: str) -> str:
     return text.replace("\\", "＼").replace("{", "｛").replace("}", "｝").replace("\n", r"\N")
 
 
+def output_bounds(project: Project, cue, *, ass: bool) -> tuple[int, int]:
+    """Output units, shared with review so rounding and EOF clipping agree."""
+    scale = 10 if ass else 1
+    return (math.floor(cue.start_ms / scale + 0.5),
+            min(project.duration_ms // scale, math.floor(cue.end_ms / scale + 0.5)))
+
+
 def wrap_text(text: str) -> str:
     """At most one balanced break. Use spaces for English/Korean; CJK char boundary otherwise."""
     text = " ".join(text.split())
@@ -55,9 +62,7 @@ def export_subtitles(project: Project, destination: Path, *, wrap_lines: bool = 
     cues = sorted(project.cues, key=lambda c: c.start_ms)
     for i, cue in enumerate(cues, 1):
         # Shared rounding keeps touching boundaries touching. Never extend past EOF.
-        scale = 10 if ass else 1
-        start = math.floor(cue.start_ms / scale + 0.5)
-        end = min(project.duration_ms // scale, math.floor(cue.end_ms / scale + 0.5))
+        start, end = output_bounds(project, cue, ass=ass)
         if end <= start:
             raise ValueError(f"第 {i} 句在輸出精度下時長為零，請調整")
         # Single-line export by default; preserve intentional manual line breaks.

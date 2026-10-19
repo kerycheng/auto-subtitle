@@ -73,6 +73,15 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         for suffix in [".ass", ".srt"]:
             export_subtitles(p, target / ("export" + suffix))
         report["export"] = "passed"
+        from .export_review import export_with_review
+        export_check = Project(duration_ms=2000, status="complete", cues=[
+            Cue("short", 100, 190, "Example", 100, 190),
+            Cue("next", 190, 1200, "Next example", 190, 1200)])
+        for suffix in (".ass", ".srt"):
+            review, companion, error = export_with_review(export_check, target / ("review-export" + suffix))
+            assert error is None and companion.is_file()
+            assert [(f["code"], f["rows"]) for f in review["findings"]] == [("short", [1])]
+        report["export_review"] = "passed; actual output clocks, short-cue reminder and companion report"
         from .native_segmentation import segment_native
         first = [Word(100, 400, "よかったよ"), Word(400, 500, "な")]
         second = [Word(500, 1000, "いや"), Word(1000, 2000, "今日は休み")]
@@ -347,6 +356,14 @@ def self_test(directory: str, model_path: str | None = None, audio_path: str | N
         assert reopened_vocabulary.vocabulary_choice == public.vocabulary_choice
         reopened_vocabulary.close()
         report["vocabulary_multiselect"] = "passed; actual modal checklist, deduplication and restart"
+        public.project = export_check
+        public.project.media_path = "synthetic.mp4"
+        from .app import QFileDialog
+        with patch.object(QFileDialog, "getSaveFileName", return_value=(str(target / "gui-export.ass"), "ASS 字幕 (*.ass)")):
+            public.export()
+        assert "1 項檢查提醒" in public.status.text()
+        assert (target / "gui-export.ass.review.txt").is_file()
+        report["export_review_gui"] = "passed; existing export action creates report without new main controls"
         public.project = audition if playback_project or (model_path and audio_path) else p
         public.project_path = None
         public.autosave.stop()
