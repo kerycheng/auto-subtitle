@@ -48,6 +48,13 @@ def test_accepts_public_source_and_system_font_path(tmp_path):
     assert checker.audit(root) == []
 
 
+def test_only_named_public_decoder_build_script_is_allowed(tmp_path):
+    root = repository(tmp_path)
+    stage(root, 'scripts/build_ffmpeg.sh', '#!/bin/sh\nset -eu\n')
+    assert checker.audit(root) == []
+    assert not checker.allowed_path('scripts/local_study.sh')
+
+
 def test_rejects_token_without_printing_secret(tmp_path):
     root = repository(tmp_path)
     token = 'gh' + 'p_' + 'a' * 36

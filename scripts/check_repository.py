@@ -29,7 +29,7 @@ def git(root, *args):
 
 def allowed_path(name):
     path = PurePosixPath(name)
-    return (name in ROOT_FILES or name in PUBLIC_DOCS or (
+    return (name in ROOT_FILES or name in PUBLIC_DOCS or name == 'scripts/build_ffmpeg.sh' or (
         len(path.parts) >= 2 and path.parts[0] in {'src', 'scripts', 'tests'}
         and path.suffix == '.py' and '__pycache__' not in path.parts))
 

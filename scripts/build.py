@@ -11,6 +11,7 @@ root = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
 parser.add_argument("--with-cuda", action="store_true", help="Build AutoSubtitle-GPU with optional NVIDIA runtime sidecar")
 parser.add_argument("--output-name", help="Optional separate release directory/executable name")
+parser.add_argument("--notices-directory", type=Path, help="Preflighted dependency notices from collect_release_notices.py")
 args = parser.parse_args()
 build_name = "AutoSubtitle-GPU" if args.with_cuda else "AutoSubtitle"
 if args.output_name:
@@ -33,7 +34,9 @@ if os.name == "nt":
         Path(sys.executable).parent, Path(sys.base_prefix), Path(sys.base_prefix) / "DLLs",
         windows / "System32", windows,
     ]))
-ffmpeg = Path(imageio_ffmpeg.get_ffmpeg_exe())
+ffmpeg = Path(os.environ.get("AUTOSUB_FFMPEG") or imageio_ffmpeg.get_ffmpeg_exe())
+if not ffmpeg.is_file():
+    raise FileNotFoundError("FFmpeg executable does not exist")
 # media.ffmpeg_path expects a stable filename inside the bundle.
 target = root / "build" / "vendor" / ("ffmpeg.exe" if os.name == "nt" else "ffmpeg")
 target.parent.mkdir(parents=True, exist_ok=True)
@@ -54,6 +57,13 @@ PyInstaller.__main__.run([
     "--add-binary", f"{target}{os.pathsep}bin",
     *(["--osx-bundle-identifier", "app.autosubtitle.desktop"] if sys.platform == "darwin" else []),
 ])
+# Keep imageio's fallback consistent with an explicitly selected decoder too.
+fallbacks = root / "dist" / build_name / "_internal" / "imageio_ffmpeg" / "binaries"
+for fallback in fallbacks.glob("ffmpeg*.exe"):
+    shutil.copy2(ffmpeg, fallback)
+if args.notices_directory:
+    from autosub.release_notices import copy_verified_notices
+    copy_verified_notices(args.notices_directory, root / "dist" / build_name / "licenses" / "python-packages")
 quickstart = root / "docs" / "windows-quickstart.txt"
 if quickstart.is_file():
     shutil.copy2(quickstart, root / "dist" / build_name / "README-zh-TW.txt")

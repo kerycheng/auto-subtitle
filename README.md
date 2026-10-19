@@ -206,6 +206,12 @@ FFmpeg 預設由 imageio-ffmpeg 提供。需要自訂位置時，可於啟動前
 
 建置產生的 `.spec` 位於 `build/specs/`，中間檔案位於 `build/pyinstaller/`。沒有建置作業時可刪除 `build/`，下次會重新產生；`dist/` 中的可攜版成品不受影響。
 
+公開分發前，還需保留主程式與第三方授權聲明，以及隨附 FFmpeg 二進位檔對應的原始碼與建置方法。`scripts/collect_release_notices.py` 可收集目前環境中執行期相依套件的授權；若某個 wheel 沒有附授權檔，須先從對應版本的官方來源取得並核對，工具不會把缺少聲明當成通過。
+
+`scripts/build_ffmpeg.sh` 提供使用 MinGW-w64 與 GNU make、從未修改的 FFmpeg 原始碼建立獨立音訊轉換執行檔的方法。此設定不啟用外部編解碼庫、GPL 或 nonfree 元件，僅保留原生音訊解碼與 PCM WAV 輸出；實際分發時仍須核對建置結果、附上相應來源與 MinGW 執行期聲明，並測試媒體轉換。這些檢查與字幕辨識正確率無關。`shared` 模式可建立供 PyAV 使用的動態函式庫；必須選擇相容 ABI 的 FFmpeg 版本並另外驗證，不可僅憑 DLL 檔名替換。
+
+建置時可用 `AUTOSUB_FFMPEG` 指定經驗證的轉檔執行檔，並以 `--notices-directory` 指定收集好的聲明目錄；工具會驗證清單雜湊，只複製列出的聲明檔。Python wheel 的授權不必然涵蓋它內含的原生函式庫，仍須核對後者的來源與條款。
+
 倉庫只保存程式、通用工具、合成測試、依賴與公開操作文件。私人素材、字幕成品、個人詞彙與本機研究資料不提交；提交規則見 [貢獻與資料規則](CONTRIBUTING.md)。
 
 ## 授權條款
