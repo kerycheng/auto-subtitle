@@ -6,7 +6,7 @@
 
 **匯入媒體 → 選擇語言與模型 → 勾選詞彙提示 → 生成與試聽 → 匯出字幕 → Aegisub 校正**
 
-目前版本：**0.10.1**。一般使用者可直接使用 Release 可攜版，無須安裝 Python 或自行編譯。
+目前版本：**0.10.2**。一般使用者可直接使用 Release 可攜版，無須安裝 Python 或自行編譯。
 
 ![自動打軸機主畫面：字幕表、選句預覽與波形](docs/images/main-window.svg)
 
@@ -31,7 +31,7 @@
 | CPU 版 `AutoSubtitle` | 沒有相容 NVIDIA 顯示卡，或使用 CPU 運算 | CPU／INT8 |
 | GPU 版 `AutoSubtitle-GPU` | 使用相容的 NVIDIA 顯示卡 | CUDA／FP16，也可選 CPU |
 
-解壓縮後，開啟資料夾內與版本名稱相符的 `.exe`，例如 `AutoSubtitle-0.10.1.exe` 或 `AutoSubtitle-GPU-0.10.1.exe`。請將 `_internal` 與程式保留在一起；GPU 版還需保留 `cuda` 資料夾。
+解壓縮後，開啟資料夾內與版本名稱相符的 `.exe`，例如 `AutoSubtitle-0.10.2.exe` 或 `AutoSubtitle-GPU-0.10.2.exe`。請將 `_internal` 與程式保留在一起；GPU 版還需保留 `cuda` 資料夾。
 
 如果使用的是包含原始碼與本機建置成品的專案目錄，也可以透過根目錄的 `Start-AutoSubtitle.cmd` 啟動已建置版本。
 
@@ -190,10 +190,10 @@ FFmpeg 預設由 imageio-ffmpeg 提供。需要自訂位置時，可於啟動前
 ### 打包 CPU 版
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/build.py --output-name AutoSubtitle-0.10.1
+.\.venv\Scripts\python.exe scripts/build.py --output-name AutoSubtitle-0.10.2
 ```
 
-成品位於 `dist/AutoSubtitle-0.10.1/`，請保留並分發整個目錄。
+成品位於 `dist/AutoSubtitle-0.10.2/`，請保留並分發整個目錄。
 
 ### 打包 NVIDIA GPU 版
 
@@ -201,10 +201,10 @@ FFmpeg 預設由 imageio-ffmpeg 提供。需要自訂位置時，可於啟動前
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e '.[gpu]'
-.\.venv\Scripts\python.exe scripts/build.py --with-cuda --output-name AutoSubtitle-GPU-0.10.1
+.\.venv\Scripts\python.exe scripts/build.py --with-cuda --output-name AutoSubtitle-GPU-0.10.2
 ```
 
-成品位於 `dist/AutoSubtitle-GPU-0.10.1/`。建置工具會收集 CUDA／cuDNN 執行庫與對應授權聲明，執行時仍需相容 NVIDIA 驅動；辨識模型另外存放，不隨程式打包。
+成品位於 `dist/AutoSubtitle-GPU-0.10.2/`。建置工具會收集 CUDA／cuDNN 執行庫與對應授權聲明，執行時仍需相容 NVIDIA 驅動；辨識模型另外存放，不隨程式打包。
 
 建置產生的 `.spec` 位於 `build/specs/`，中間檔案位於 `build/pyinstaller/`。沒有建置作業時可刪除 `build/`，下次會重新產生；`dist/` 中的可攜版成品不受影響。
 

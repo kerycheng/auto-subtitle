@@ -88,15 +88,8 @@ def segment_native(project, native_groups):
                 cut = max(phrase_options or options, key=score)
             result_groups.append(rest[:cut])
             rest = rest[cut:]
-    cues = cues_from_groups(project, result_groups)
-    for index, cue in enumerate(cues):
-        group = result_groups[index]
-        raw_start, raw_end = group[0].start_ms, max(w.end_ms for w in group)
-        if index and (previous_end := max(w.end_ms for w in result_groups[index-1])) <= raw_start:
-            cue.speech_start_ms = max(cue.speech_start_ms, previous_end)
-        if index+1 < len(result_groups) and raw_end <= (next_start := result_groups[index+1][0].start_ms):
-            cue.speech_end_ms = min(cue.speech_end_ms, next_start)
-        cue.start_ms, cue.end_ms = cue.speech_start_ms, cue.speech_end_ms
+    cues = cues_from_groups(project, result_groups, separate_vad=True)
+    for cue in cues:
         cue.timing_trace["segmentation"] = "native-sentence-v1"
         cue.timing_trace["native_lexical_repairs"] = moved
         if retained:

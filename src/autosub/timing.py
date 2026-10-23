@@ -132,12 +132,29 @@ def segment_words(project: Project) -> list[Cue]:
     return cues_from_groups(project, groups)
 
 
-def cues_from_groups(project: Project, groups: list[list[Word]]) -> list[Cue]:
+def cues_from_groups(project: Project, groups: list[list[Word]], *, separate_vad: bool = False) -> list[Cue]:
     """Convert token groups to cues without changing recognized text or token times."""
     settings = project.settings
     result = []
-    for group in groups:
+    for index, group in enumerate(groups):
         start, end, flags = refine_boundaries(project, group)
+        if separate_vad:
+            raw_start, raw_end = group[0].start_ms, max(w.end_ms for w in group)
+            lower, upper = start, end
+            if index and (previous_end := max(w.end_ms for w in groups[index - 1])) <= raw_start:
+                lower = max(lower, previous_end)
+            if index + 1 < len(groups) and raw_end <= (next_start := groups[index + 1][0].start_ms):
+                upper = min(upper, next_start)
+            # Neighbour constraints must never collapse an entire cue. This can
+            # happen when Whisper assigns several words the same timestamp.
+            if lower < upper:
+                start, end = lower, upper
+        if start == end and project.duration_ms > 0:
+            # A placeholder is not acoustic evidence. Preserve the text and raw
+            # timestamps, flag it for review, and allow ASS's 10ms precision.
+            start = min(start, max(0, project.duration_ms - 10))
+            end = min(project.duration_ms, start + 10)
+            flags.append("原始詞級時間長度為零，暫用最小區間，請試聽校時")
         if any(w.probability < 0.45 for w in group):
             flags.append("辨識信心偏低")
         if end - start > settings.max_duration_ms:

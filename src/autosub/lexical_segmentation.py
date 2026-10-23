@@ -153,17 +153,8 @@ def lexical_groups(project: Project):
 
 def segment_lexically(project: Project):
     groups, decisions, mapping = lexical_groups(project)
-    cues = cues_from_groups(project, groups)
-    for i, cue in enumerate(cues):
-        raw_start = groups[i][0].start_ms
-        raw_end = max(w.end_ms for w in groups[i])
-        # Moving a cut back can expose a VAD edge belonging to its neighbour.
-        # Clamp only such VAD expansion, never crop overlapping raw word times.
-        if i and (previous_end := max(w.end_ms for w in groups[i - 1])) <= raw_start:
-            cue.speech_start_ms = max(cue.speech_start_ms, previous_end)
-        if i + 1 < len(groups) and raw_end <= (next_start := groups[i + 1][0].start_ms):
-            cue.speech_end_ms = min(cue.speech_end_ms, next_start)
-        cue.start_ms, cue.end_ms = cue.speech_start_ms, cue.speech_end_ms
+    cues = cues_from_groups(project, groups, separate_vad=True)
+    for cue in cues:
         cue.timing_trace["segmentation"] = STRATEGY
         cue.flags.append("日文完整詞語分段候選，請複核語意與發聲時間")
     # Annotate affected cuts rather than pretending the proposed character times

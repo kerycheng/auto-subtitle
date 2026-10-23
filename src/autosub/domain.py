@@ -105,6 +105,11 @@ class Project:
         # Back up the exact old file on first migrated save, before replacement.
         if path.exists():
             previous = json.loads(path.read_text(encoding="utf-8"))
+            if any("zero_duration_recovery" in c.timing_trace for c in self.cues) and any(
+                    c.get("speech_start_ms") == c.get("speech_end_ms") for c in previous.get("cues", [])):
+                backup = path.with_suffix(path.suffix + ".zero-duration.bak")
+                if not backup.exists():
+                    shutil.copyfile(path, backup)
             if previous.get("schema_version") in {1, 2, 3}:
                 backup = path.with_suffix(path.suffix + f".v{previous['schema_version']}.bak")
                 if not backup.exists():
@@ -137,8 +142,29 @@ class Project:
         raw["words"] = [Word(**w) for w in raw["words"]]
         raw["cues"] = [Cue(**c) for c in raw["cues"]]
         project = cls(**raw)
+        project._recover_zero_duration_cues()
         project.validate()
         return project
+
+    def _recover_zero_duration_cues(self) -> None:
+        """Recover only the known generated-cue collapse, retaining its evidence."""
+        words = {word_key(w): w for w in self.words}
+        for cue in self.cues:
+            at = cue.speech_start_ms
+            if (cue.locked or at != cue.speech_end_ms
+                    or not 0 <= cue.start_ms < cue.end_ms <= self.duration_ms
+                    or cue.timing_trace.get("segmentation") not in {"native-sentence-v1", "ja-lexical-v1"}
+                    or cue.timing_trace.get("raw") != [at, at]
+                    or not cue.source_tokens
+                    or any(token not in words or words[token].start_ms != at or words[token].end_ms != at
+                           for token in cue.source_tokens)):
+                continue
+            cue.speech_start_ms, cue.speech_end_ms = cue.start_ms, cue.end_ms
+            cue.timing_trace["zero_duration_recovery"] = {
+                "original_base": [at, at], "temporary_base": [cue.start_ms, cue.end_ms]}
+            cue.timing_trace["base"] = [cue.start_ms, cue.end_ms]
+            cue.flags.append("原始詞級時間長度為零，暫用既有顯示區間，請試聽校時")
+            cue.reviewed = False
 
     def validate(self) -> None:
         self.settings.validate()
